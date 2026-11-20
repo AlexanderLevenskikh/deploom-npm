@@ -18,14 +18,14 @@ cmake -S z3-solver-4.13.0.0/core -B obj -G Ninja \
   "-DCMAKE_SHARED_LINKER_FLAGS=$linkflags" "-DCMAKE_EXE_LINKER_FLAGS=$linkflags" \
   -DZ3_INCLUDE_GIT_HASH=OFF -DZ3_INCLUDE_GIT_DESCRIBE=OFF -DZ3_BUILD_LIBZ3_SHARED=ON
 cmake --build obj --parallel "$(nproc)" --target libz3 shell
-for pair in 'libz3.dll:libz3.dll' 'z3.exe:z3.exe'; do
-  pattern=${pair%%:*}
-  if [[ "$pattern" == libz3.dll ]]; then pattern='*z3.dll'; fi
+for binary in libz3.dll z3.exe; do
+  pattern=$binary
+  if [[ "$binary" == libz3.dll ]]; then pattern='*z3.dll'; fi
   mapfile -t found < <(find obj -type f -iname "$pattern")
   [[ ${#found[@]} == 1 ]]
-  x86_64-w64-mingw32-strip -o "output/${pair#*:}" "${found[0]}"
-  imports=$(x86_64-w64-mingw32-objdump -p "output/${pair#*:}" | awk '/DLL Name:/ {print tolower($NF)}' | sort -u)
-  echo "${pair#*:} imports:"
+  x86_64-w64-mingw32-strip -o "output/$binary" "${found[0]}"
+  imports=$(x86_64-w64-mingw32-objdump -p "output/$binary" | awk '/DLL Name:/ {print tolower($NF)}' | sort -u)
+  echo "$binary imports:"
   echo "$imports"
   if grep -Eiq '^(vcruntime|msvcp[0-9]|mfc[0-9]|vcomp[0-9]|libstdc\+\+|libgcc|libwinpthread)' <<< "$imports"; then
     echo 'Unexpected external compiler runtime' >&2
@@ -36,5 +36,8 @@ cp z3-solver-4.13.0.0/core/LICENSE.txt output/Z3-LICENSE.txt
 cp /usr/share/doc/mingw-w64-common/copyright output/MinGW-COPYRIGHT.txt
 cp /usr/share/common-licenses/GPL-3 output/GCC-GPL-3.txt
 cp /usr/share/doc/gcc-mingw-w64-base/copyright output/compiler-copyright.txt
-test -f /usr/share/common-licenses/GPL-3
+cp /usr/share/doc/gcc-13-base/copyright output/GCC-COPYRIGHT.txt
+curl --fail --location --retry 3 https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-13.2.0/COPYING.RUNTIME -o output/GCC-RUNTIME-EXCEPTION.txt
+grep -q 'GCC RUNTIME LIBRARY EXCEPTION' output/GCC-RUNTIME-EXCEPTION.txt
+printf 'source=%s\nsha256=%s\ncompiler=%s\n' "$url" "$sha" "$(x86_64-w64-mingw32-g++-posix -dumpfullversion)" > output/BUILD-INFO.txt
 (cd output && sha256sum *.dll *.exe > SHA256SUMS)
