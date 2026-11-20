@@ -9,7 +9,7 @@ cd build/solver
 curl --fail --location --retry 3 "$url" -o "$archive"
 echo "$sha  $archive" | sha256sum --check --strict
 tar xzf "$archive"
-linkflags='-static -static-libgcc -static-libstdc++ -Wl,--no-insert-timestamp'
+linkflags='-static -static-libgcc -static-libstdc++ -Wl,--strip-all,--no-insert-timestamp'
 cmake -S z3-solver-4.13.0.0/core -B obj -G Ninja \
   -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_SYSTEM_PROCESSOR=AMD64 \
   -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc-posix -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++-posix \
@@ -23,7 +23,7 @@ for binary in libz3.dll z3.exe; do
   if [[ "$binary" == libz3.dll ]]; then pattern='*z3.dll'; fi
   mapfile -t found < <(find obj -type f -iname "$pattern")
   [[ ${#found[@]} == 1 ]]
-  x86_64-w64-mingw32-strip -o "output/$binary" "${found[0]}"
+  cp "${found[0]}" "output/$binary"
   imports=$(x86_64-w64-mingw32-objdump -p "output/$binary" | awk '/DLL Name:/ {print tolower($NF)}' | sort -u)
   echo "$binary imports:"
   echo "$imports"
