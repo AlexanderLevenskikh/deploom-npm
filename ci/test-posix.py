@@ -1,4 +1,4 @@
-"""Exercise the consumer command with an empty npm cache and no runtime downloads."""
+"""Exercise all three client registrations from an offline archive or a public npm release."""
 import argparse
 import json
 import os
@@ -29,3 +29,10 @@ with tempfile.TemporaryDirectory() as temp:
     python = base / "versions" / version / "bin/python3.13"
     subprocess.run([str(python), "-I", "-B", str(Path(__file__).with_name("smoke_clients.py").resolve()), str(profile)],
                    cwd=profile, env=env, check=True, timeout=180)
+    entry = base / "versions" / version / "lib/python3.13/site-packages/deploom_mcp/__init__.py"
+    with entry.open("ab") as stream:
+        stream.write(b"\n# modified after installation\n")
+    retry = subprocess.run(["npm", "exec", "--yes", "--package=" + spec, "--", "deploom", "setup", "codex"],
+                           cwd=profile, env=env, capture_output=True, text=True, timeout=120)
+    if retry.returncode == 0 or "Installed runtime is incomplete" not in retry.stderr:
+        raise RuntimeError("A modified runtime was not detected", retry.stderr)

@@ -31,10 +31,10 @@ function prepareRuntime(version) {
   if (process.platform !== 'win32') {
     const installer = require('./posix-runtime.cjs');
     const stamp = path.join(dest, '.deploom-install.json');
-    const receipt = JSON.stringify({ version, target: installer.target,
-      lock: installer.sha(path.join(pkg, 'bin/posix-requirements.txt')) });
+    const receipt = dir => JSON.stringify({ version, target: installer.target,
+      lock: installer.sha(path.join(pkg, 'bin/posix-requirements.txt')), tree: installer.runtimeDigest(dir) });
     if (fs.existsSync(dest)) {
-      if (read(stamp, null) !== receipt || !fs.existsSync(pythonBin(dest))) throw Error('Installed runtime is incomplete');
+      if (read(stamp, null) !== receipt(dest) || !fs.existsSync(pythonBin(dest))) throw Error('Installed runtime is incomplete');
       return;
     }
     fs.mkdirSync(path.dirname(dest), { recursive: true });
@@ -43,7 +43,7 @@ function prepareRuntime(version) {
       const runtime = path.join(work, 'runtime');
       fs.mkdirSync(runtime);
       installer.buildRuntime(runtime, pkg, work);
-      fs.writeFileSync(path.join(runtime, '.deploom-install.json'), receipt, { flag: 'wx' });
+      fs.writeFileSync(path.join(runtime, '.deploom-install.json'), receipt(runtime), { flag: 'wx' });
       fs.renameSync(runtime, dest);
     } finally { fs.rmSync(work, { recursive: true, force: true }); }
     return;

@@ -14,6 +14,27 @@ const site = 'lib/python3.13/site-packages';
 function sha(file) {
   return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 }
+function runtimeDigest(root) {
+  const tree = crypto.createHash('sha256');
+  function visit(relative) {
+    const directory = path.join(root, relative);
+    for (const name of fs.readdirSync(directory).sort()) {
+      if (!relative && name === '.deploom-install.json') continue;
+      const key = path.join(relative, name);
+      const file = path.join(root, key);
+      const stat = fs.lstatSync(file);
+      let value;
+      if (stat.isSymbolicLink()) value = fs.readlinkSync(file);
+      else if (stat.isDirectory()) value = '';
+      else if (stat.isFile()) value = sha(file);
+      else throw Error('Unexpected runtime file type: ' + key);
+      tree.update(JSON.stringify([key, stat.mode, value]) + '\n');
+      if (stat.isDirectory()) visit(key);
+    }
+  }
+  visit('');
+  return tree.digest('hex');
+}
 function run(command, args) {
   execFileSync(command, args, { stdio: 'inherit', timeout: 600_000 });
 }
@@ -55,4 +76,4 @@ function buildRuntime(dir, pkg, scratch) {
   }
   run(path.join(dir, 'bin/python3.13'), ['-I', '-B', '-c', 'from deploom_mcp import server; import z3; x=z3.Int("x"); s=z3.Solver(); s.add(x==17); assert s.check()==z3.sat and s.model()[x].as_long()==17']);
 }
-module.exports = { buildRuntime, checkPlatform, verifyArchive, target, sha };
+module.exports = { buildRuntime, checkPlatform, verifyArchive, target, sha, runtimeDigest };
