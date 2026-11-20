@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: levencode-labs/deploom-mcp
-          ref: 60f8d2c0a903f18144ab3b5a7b262760466a173e
+          ref: 0fc2121adc551e0604f309c64af63f3a885ddf53
           submodules: true
           path: build/upstream
           persist-credentials: false
@@ -55,8 +55,19 @@ jobs:
           $tarball = (Get-ChildItem build/*.tgz).FullName
           python -B ci/check_archive.py build/package $tarball
       - name: Install supported clients for the smoke test
-        run: npm.cmd install --global @openai/codex@0.165.0 opencode-ai@2.2.5 @anthropic-ai/claude-code@2.1.241
+        run: |
+          npm.cmd install --global @openai/codex@0.165.0 @anthropic-ai/claude-code@2.1.241
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $archive = Join-Path $env:RUNNER_TEMP 'opencode-windows-x64.zip'
+          Invoke-WebRequest 'https://github.com/anomalyco/opencode/releases/download/v2.2.5/opencode-windows-x64.zip' -OutFile $archive
+          if ((Get-FileHash $archive).Hash -ne '2f3bfd6b3527c60c2a882557b20ddc9ba6bdff4b5a8fe61c853da8fcfb3076e8') { throw 'OpenCode digest mismatch' }
+          $dir = Join-Path $env:RUNNER_TEMP 'opencode'
+          Expand-Archive $archive $dir
+          (Get-ChildItem $dir -Recurse -Filter opencode.exe -File).Directory.FullName >> $env:GITHUB_PATH
       - name: Install offline and run each configured MCP server
         run: |
           $tarball = (Get-ChildItem build/*.tgz).FullName
           ./ci/test-install.ps1 -Tarball $tarball -Work (Join-Path $PWD 'build/smoke')
+      - name: Verify anonymous public cache from two installed profiles
+        run: |
+          & ./build/smoke/install/node_modules/@levencode/deploom/runtime/python.exe -I -B ci/probe_public_cache.py build/live-cache

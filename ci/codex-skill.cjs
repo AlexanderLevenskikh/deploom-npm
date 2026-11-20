@@ -6,7 +6,7 @@ const { createInterface } = require('node:readline');
 
 async function check() {
   const profile = path.resolve(process.argv[2]);
-  const app = spawn('codex.exe', ['app-server', '--listen', 'stdio://'], {
+  const app = spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/c', 'codex app-server --listen stdio://'], {
     cwd: profile, windowsHide: true, stdio: ['pipe', 'pipe', 'inherit'],
     env: { ...process.env, USERPROFILE: profile, CODEX_HOME: path.join(profile, '.codex') },
   });

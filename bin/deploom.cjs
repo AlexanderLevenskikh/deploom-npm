@@ -53,14 +53,20 @@ function checkPath(file) {
   }
 }
 
-function copySkill(source, target) {
-  fs.cpSync(source, target, {
-    recursive: true,
-    filter(file) {
-      if (fs.lstatSync(file).isSymbolicLink()) throw Error('Linked Skill entry: ' + file);
-      return true;
-    },
-  });
+function preserveExtras(source, target, previous) {
+  for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
+    const from = path.join(source, entry.name);
+    const to = path.join(target, entry.name);
+    const old = path.join(previous, entry.name);
+    if (entry.isSymbolicLink()) throw Error('Linked Skill entry: ' + from);
+    if (entry.isDirectory()) {
+      fs.mkdirSync(to, { recursive: true });
+      preserveExtras(from, to, old);
+    } else if (!fs.existsSync(old) && entry.name !== '.deploom-skill-install.json') {
+      if (!entry.isFile() || fs.existsSync(to)) throw Error('New Skill conflicts with a user file: ' + from);
+      fs.copyFileSync(from, to, fs.constants.COPYFILE_EXCL);
+    }
+  }
 }
 function compareSkill(source, target) {
   for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
@@ -135,19 +141,8 @@ function activate(profile) {
     fs.mkdirSync(path.dirname(cfg.skill), { recursive: true });
     fs.mkdirSync(stage);
     try {
-      if (hadSkill) {
-        copySkill(cfg.skill, stage);
-        // Preserve user additions. Remove superseded canonical files from the staged copy.
-        for (const rel of fs.readdirSync(skillFiles(old.version), { recursive: true })) {
-          if (fs.statSync(path.join(skillFiles(old.version), rel)).isFile()) fs.unlinkSync(path.join(stage, rel));
-        }
-      }
-      for (const rel of fs.readdirSync(skillFiles(version), { recursive: true })) {
-        if (fs.statSync(path.join(skillFiles(version), rel)).isFile() && fs.existsSync(path.join(stage, rel))) {
-          throw Error('New Skill file conflicts with a user file: ' + rel);
-        }
-      }
       installSkill(version, stage);
+      if (hadSkill) preserveExtras(cfg.skill, stage, skillFiles(old.version));
       const receiptPath = path.join(stage, '.deploom-skill-install.json');
       const receipt = JSON.parse(fs.readFileSync(receiptPath, 'utf8'));
       receipt.target = cfg.skill;

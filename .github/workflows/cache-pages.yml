@@ -1,0 +1,47 @@
+name: Deploy public cache to Pages
+on:
+  push:
+    branches: [main]
+    paths: ['docs/**', 'cache/prepare_pages.py', '.github/workflows/cache-pages.yml']
+  workflow_run:
+    workflows: ['Build public OSV release']
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: deploy-public-deploom-pages
+  cancel-in-progress: false
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/main' && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      attestations: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Verify the release before advancing the pointer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python cache/prepare_pages.py build/site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/site
+  deploy:
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.publish.outputs.page_url }}
+    steps:
+      - id: publish
+        uses: actions/deploy-pages@v4

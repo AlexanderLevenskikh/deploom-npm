@@ -36,7 +36,7 @@ function prepareConfig(client, launcher, scratch) {
     const before = read(file, '');
     const copied = path.join(scratch, 'config.toml');
     fs.writeFileSync(copied, before);
-    const list = () => JSON.parse(execFileSync('codex.exe', ['mcp', 'list', '--json'], {
+    const list = () => JSON.parse(execFileSync(process.env.ComSpec || 'cmd.exe', ['/d', '/c', 'codex mcp list --json'], {
       env: { ...process.env, CODEX_HOME: scratch }, cwd: scratch, encoding: 'utf8', windowsHide: true,
     })).find(entry => entry.name === 'deploom');
     const matches = entry => entry?.enabled && entry.transport?.type === 'stdio' &&

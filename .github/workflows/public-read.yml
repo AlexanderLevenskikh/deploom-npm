@@ -2,7 +2,7 @@ name: Verify published cache
 on:
   workflow_dispatch:
   workflow_run:
-    workflows: ['pages build and deployment']
+    workflows: ['pages build and deployment', 'Deploy public cache to Pages']
     types: [completed]
 permissions:
   contents: read
