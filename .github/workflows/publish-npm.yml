@@ -42,7 +42,6 @@ jobs:
           else
             npm publish "./$tarball" --registry=https://registry.npmjs.org/ --access public --tag next --provenance
           fi
-          test "$(npm view "@levencode/deploom@$version" dist.integrity --registry=https://registry.npmjs.org/)" = "$integrity"
   registry-install:
     needs: publish
     runs-on: windows-2025
@@ -65,6 +64,16 @@ jobs:
           $spec = "$($release.name)@$($release.version)"
           $env:npm_config_cache = Join-Path $env:RUNNER_TEMP 'new-npm-cache'
           $env:npm_config_registry = 'https://registry.npmjs.org/'
+          # npm scans new versions before public registry reads can see them.
+          foreach ($attempt in 1..41) {
+            $visible = npm.cmd view $spec dist.integrity --prefer-online --fetch-retries=0 --loglevel=silent
+            if ($LASTEXITCODE -eq 0 -and $visible) {
+              if ($visible -cne $release.integrity) { throw 'Registry integrity differs from the tested archive' }
+              break
+            }
+            if ($attempt -eq 41) { throw "Published version $spec is still unavailable after 20 minutes" }
+            Start-Sleep -Seconds 30
+          }
           New-Item -ItemType Directory readback | Out-Null
           npm.cmd pack $spec --pack-destination readback --quiet
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
