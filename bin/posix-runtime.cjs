@@ -7,7 +7,6 @@ const { execFileSync } = require('node:child_process');
 const targets = {
   'linux-x64': ['x86_64-unknown-linux-gnu', 'f2d2199eb25880e07863b391cf7124e7ffa1338b0d65600dfcec117c4223a7fb'],
   'linux-arm64': ['aarch64-unknown-linux-gnu', '55c00325f7c1fddf325dfc621aabdfbbac4dc54adda224af88ec411dc12db239'],
-  'darwin-x64': ['x86_64-apple-darwin', 'd27d59a722db9f69926eb6d9564071247221f45a04da920ea7f3001c97e32f9b'],
   'darwin-arm64': ['aarch64-apple-darwin', '7a2384641584ab9984221fcb0fc9265df465922af71be71410529e2a9c3f0540'],
 };
 const target = process.platform + '-' + process.arch;
