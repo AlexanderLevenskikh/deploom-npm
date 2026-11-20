@@ -34,6 +34,12 @@ foreach ($client in 'claude', 'codex', 'opencode') {
         if ($LASTEXITCODE) { exit $LASTEXITCODE }
     }
 }
+$version = (Get-Content (Join-Path $package 'package.json') -Raw | ConvertFrom-Json).version
+$active = Join-Path $env:LOCALAPPDATA "DepLoom/public/versions/$version/python.exe"
+& $active -c "import sys, win32job; from deploom_mcp import server; assert sys.dont_write_bytecode"
+if ($LASTEXITCODE) { exit $LASTEXITCODE }
+& $cli setup codex
+if ($LASTEXITCODE) { exit $LASTEXITCODE }
 & (Join-Path $package 'runtime/python.exe') -I -B -u (Join-Path $PSScriptRoot 'smoke_clients.py') $testProfile
 if ($LASTEXITCODE) { exit $LASTEXITCODE }
 node (Join-Path $PSScriptRoot 'codex-skill.cjs') $testProfile

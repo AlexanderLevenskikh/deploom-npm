@@ -30,6 +30,7 @@ def main():
                   repository="levencode-labs/deploom-npm", commit=os.environ["GITHUB_SHA"],
                   platform="win32-x64", python=runtime["python"], coreRevision=runtime["coreRevision"],
                   coreVersion=runtime["coreVersion"], mcp=upstream, skill=runtime["skill"],
+                  solverSha256=runtime["solverSha256"],
                   dataSchemas={"osv": 1, "history": 1, "knowledge": 1}, blueprintSchema=runtime["blueprintSchemaVersion"])
     args.output.write_text(json.dumps(result, sort_keys=True, indent=2) + "\n", encoding="utf-8")
 

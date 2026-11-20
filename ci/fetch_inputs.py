@@ -47,5 +47,5 @@ if __name__ == "__main__":
     args.output.mkdir(parents=True, exist_ok=True)
     with ThreadPoolExecutor(max_workers=6) as threads:
         list(threads.map(wheel, LOCK["wheels"]))
-    fetch(LOCK["python"]["url"], args.output / "cpython.tar.zst", LOCK["python"]["sha256"])
+    fetch(LOCK["python"]["url"], args.output / "python-embed.zip", LOCK["python"]["sha256"])
     print(f"Verified {len(LOCK['wheels'])} public wheels and CPython {LOCK['python']['version']}")
