@@ -130,6 +130,10 @@ def assemble(args, package):
     for name in ("bin", "vendor"):
         shutil.copytree(ROOT / name, package / name)
     python_runtime(args.python_archive, runtime, notices / "CPython")
+    # Planner subprocesses also use this immutable runtime without the launcher's -B flag.
+    site = runtime / "Lib/site-packages"
+    site.mkdir(parents=True)
+    (site / "00_deploom_runtime.pth").write_bytes(b"import sys; sys.dont_write_bytecode = True\n")
     for record in LOCK["wheels"]:
         wheel = checked(args.wheelhouse / record["filename"], record["sha256"])
         install_wheel(wheel, runtime, notices / record["name"], args.solver if record["name"] == "z3-solver" else None)
