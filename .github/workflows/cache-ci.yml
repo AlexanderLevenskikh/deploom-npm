@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: levencode-labs/deploom-mcp
-          ref: 0fc2121adc551e0604f309c64af63f3a885ddf53
+          ref: cbbd85da6a2337799328f4204f03ad2a44a2a768
           path: build/contracts
           persist-credentials: false
       - name: Validate the public snapshots with the consumer contract

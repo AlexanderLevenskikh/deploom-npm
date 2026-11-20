@@ -1,0 +1,108 @@
+name: Publish verified npm package
+on:
+  push:
+    tags: ['npm-v*']
+permissions:
+  contents: read
+concurrency:
+  group: publish-deploom-npm
+  cancel-in-progress: false
+jobs:
+  build:
+    uses: ./.github/workflows/windows-package.yml
+    with:
+      release: true
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-npm
+          path: verified
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+      - name: Publish the tested tarball with npm trusted publishing
+        working-directory: verified
+        run: |
+          set -euo pipefail
+          tarball=$(jq -er .tarball upstream.json)
+          version=$(jq -er .version upstream.json)
+          integrity=$(jq -er .integrity upstream.json)
+          test "$GITHUB_REF_NAME" = "npm-v$version"
+          test "$integrity" = "sha512-$(openssl dgst -sha512 -binary "$tarball" | openssl base64 -A)"
+          if existing=$(npm view "@levencode/deploom@$version" dist.integrity --registry=https://registry.npmjs.org/ 2>/dev/null) && [[ -n "$existing" ]]; then
+            test "$existing" = "$integrity"
+          else
+            npm publish "./$tarball" --registry=https://registry.npmjs.org/ --access public --tag next --provenance
+          fi
+          test "$(npm view "@levencode/deploom@$version" dist.integrity --registry=https://registry.npmjs.org/)" = "$integrity"
+  registry-install:
+    needs: publish
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-npm
+          path: verified
+      - name: Install supported clients
+        run: ./ci/install-test-clients.ps1
+      - name: Read back the public tarball and use the documented install command
+        run: |
+          $release = Get-Content verified/upstream.json -Raw | ConvertFrom-Json
+          $spec = "$($release.name)@$($release.version)"
+          $env:npm_config_cache = Join-Path $env:RUNNER_TEMP 'new-npm-cache'
+          $env:npm_config_registry = 'https://registry.npmjs.org/'
+          New-Item -ItemType Directory readback | Out-Null
+          npm.cmd pack $spec --pack-destination readback --quiet
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $received = (Get-ChildItem readback/*.tgz).FullName
+          $tested = (Get-ChildItem verified/*.tgz).FullName
+          if ((Get-FileHash $received -Algorithm SHA512).Hash -ne (Get-FileHash $tested -Algorithm SHA512).Hash) { throw 'Registry tarball changed' }
+          $env:USERPROFILE = Join-Path $env:RUNNER_TEMP 'registry-codex'
+          $env:CODEX_HOME = Join-Path $env:USERPROFILE '.codex'
+          $env:LOCALAPPDATA = Join-Path $env:USERPROFILE 'local'
+          npm.cmd exec --yes "--package=$spec" -- deploom setup codex
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          ./ci/test-install.ps1 -Tarball $received -Work (Join-Path $PWD 'registry-smoke')
+  downstream:
+    needs: registry-install
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      attestations: write
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-npm
+          path: verified
+      - uses: actions/attest@v4
+        with:
+          subject-path: verified/*
+      - name: Publish immutable downstream artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --prerelease --latest=false --title "$GITHUB_REF_NAME" --notes "Verified Windows x64 npm distribution and upstream contract."
+          fi
+          if [[ "$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" == true ]]; then
+            gh release upload "$GITHUB_REF_NAME" verified/* --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false
+          fi
+          gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --dir readback
+          for file in verified/*; do cmp "$file" "readback/$(basename "$file")"; done

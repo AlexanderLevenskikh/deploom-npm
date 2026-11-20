@@ -1,0 +1,9 @@
+{
+  "repository": "levencode-labs/deploom-mcp",
+  "version": "0.2.21",
+  "tag": "v0.2.21",
+  "commit": "cbbd85da6a2337799328f4204f03ad2a44a2a768",
+  "coreRevision": "9d1b01dbba8e3f0518fec8506f5b2942b7a7c3c2",
+  "url": "https://github.com/levencode-labs/deploom-mcp/releases/download/v0.2.21/deploom_mcp-0.2.21-py3-none-any.whl",
+  "sha256": "3251274e344a80c80c580ad310059ed3f780352ae8d38503ee4f8b3883bb3af5"
+}
