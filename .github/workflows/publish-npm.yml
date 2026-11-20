@@ -64,19 +64,14 @@ jobs:
           $spec = "$($release.name)@$($release.version)"
           $env:npm_config_cache = Join-Path $env:RUNNER_TEMP 'new-npm-cache'
           $env:npm_config_registry = 'https://registry.npmjs.org/'
-          # npm scans new versions before public registry reads can see them.
+          New-Item -ItemType Directory readback | Out-Null
+          # npm can expose metadata before the scanned tarball is available.
           foreach ($attempt in 1..41) {
-            $visible = npm.cmd view $spec dist.integrity --prefer-online --fetch-retries=0 --loglevel=silent
-            if ($LASTEXITCODE -eq 0 -and $visible) {
-              if ($visible -cne $release.integrity) { throw 'Registry integrity differs from the tested archive' }
-              break
-            }
-            if ($attempt -eq 41) { throw "Published version $spec is still unavailable after 20 minutes" }
+            npm.cmd pack $spec --pack-destination readback --prefer-online --fetch-retries=0 --quiet
+            if ($LASTEXITCODE -eq 0) { break }
+            if ($attempt -eq 41) { throw "Published archive $spec is still unavailable after 20 minutes" }
             Start-Sleep -Seconds 30
           }
-          New-Item -ItemType Directory readback | Out-Null
-          npm.cmd pack $spec --pack-destination readback --quiet
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
           $received = (Get-ChildItem readback/*.tgz).FullName
           $tested = (Get-ChildItem verified/*.tgz).FullName
           if ((Get-FileHash $received -Algorithm SHA512).Hash -ne (Get-FileHash $tested -Algorithm SHA512).Hash) { throw 'Registry tarball changed' }
