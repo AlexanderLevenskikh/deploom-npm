@@ -8,7 +8,10 @@ concurrency:
   group: publish-deploom-npm
   cancel-in-progress: false
 jobs:
+  posix:
+    uses: ./.github/workflows/posix-package.yml
   build:
+    needs: posix
     uses: ./.github/workflows/windows-package.yml
     with:
       release: true
@@ -86,8 +89,30 @@ jobs:
             if ($LASTEXITCODE) { exit $LASTEXITCODE }
           } finally { Pop-Location }
           ./ci/test-install.ps1 -Tarball $received -Work (Join-Path $PWD 'registry-smoke')
-  downstream:
+  registry-native:
     needs: registry-install
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-15]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install clients and exercise the public npm package from a clean profile
+        run: |
+          npm install --prefix "$RUNNER_TEMP/deploom-clients" @openai/codex@0.165.0
+          python3 ci/posix-opencode.py "$RUNNER_TEMP/deploom-clients/node_modules/.bin"
+          PATH="$RUNNER_TEMP/deploom-clients/node_modules/.bin:$PATH" python3 ci/test-posix.py --registry "@levencode/deploom@${GITHUB_REF_NAME#npm-v}"
+  downstream:
+    needs: registry-native
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -98,6 +123,11 @@ jobs:
         with:
           name: verified-npm
           path: verified
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: posix-*
+          merge-multiple: true
+          path: verified
       - uses: actions/attest@v4
         with:
           subject-path: verified/*
@@ -107,7 +137,7 @@ jobs:
         run: |
           set -euo pipefail
           if ! gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --prerelease --latest=false --title "$GITHUB_REF_NAME" --notes "Verified Windows x64 npm distribution and upstream contract."
+            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --prerelease --latest=false --title "$GITHUB_REF_NAME" --notes "Verified Windows, Linux and macOS npm archives and upstream contract."
           fi
           if [[ "$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" == true ]]; then
             gh release upload "$GITHUB_REF_NAME" verified/* --repo "$GITHUB_REPOSITORY" --clobber

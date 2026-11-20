@@ -13,6 +13,7 @@ def main():
     parser.add_argument("archive", type=Path)
     parser.add_argument("wheel_lock", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("native", type=Path)
     args = parser.parse_args()
     upstream = json.loads(args.wheel_lock.read_bytes())
     with tarfile.open(args.archive) as archive:
@@ -32,6 +33,24 @@ def main():
                   coreVersion=runtime["coreVersion"], mcp=upstream, skill=runtime["skill"],
                   solverSha256=runtime["solverSha256"],
                   dataSchemas={"osv": 1, "history": 1, "knowledge": 1}, blueprintSchema=runtime["blueprintSchemaVersion"])
+    platform_archives = []
+    for target in ("linux-x64", "linux-arm64", "darwin-arm64"):
+        filename = f"deploom-{target}-{pkg['version']}.tgz"
+        file = args.native / filename
+        with tarfile.open(file) as tar:
+            package = json.load(tar.extractfile("package/package.json"))
+            receipt = json.load(tar.extractfile("package/posix-offline.json"))
+            if (package["name"] != pkg["name"] or package["version"] != pkg["version"]
+                    or package["os"] != [target.split("-")[0]] or package["cpu"] != [target.split("-")[1]]
+                    or receipt["target"] != target or receipt["version"] != pkg["version"]
+                    or hashlib.file_digest(tar.extractfile("package/portable-runtime.tar.gz"), "sha256").hexdigest() != receipt["sha256"]):
+                raise ValueError(f"Native package identity or runtime hash mismatch: {filename}")
+        with file.open("rb") as stream:
+            digest = base64.b64encode(hashlib.file_digest(stream, "sha512").digest()).decode()
+        platform_archives.append(dict(platform=target, tarball=filename, bytes=file.stat().st_size, integrity="sha512-" + digest))
+    if set(args.native.glob("*.tgz")) != {args.native / entry["tarball"] for entry in platform_archives}:
+        raise ValueError("Unexpected native archive in release inputs")
+    result["platformArchives"] = platform_archives
     args.output.write_text(json.dumps(result, sort_keys=True, indent=2) + "\n", encoding="utf-8")
 
 
