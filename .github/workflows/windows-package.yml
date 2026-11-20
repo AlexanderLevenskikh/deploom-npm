@@ -1,7 +1,7 @@
 name: Test the Windows npm archive
 on:
   push:
-    branches: [main, 'feature/**']
+    branches: [main]
     paths:
       - 'bin/**'
       - 'ci/**'
