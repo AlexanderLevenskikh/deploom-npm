@@ -2,6 +2,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const net = require('node:net');
+const os = require('node:os');
 const crypto = require('node:crypto');
 const { spawn } = require('node:child_process');
 const versionPattern = /^\d+\.\d+\.\d+(?:-[a-z0-9]+(?:\.[a-z0-9]+)*)?$/i;
@@ -39,12 +40,81 @@ async function withLock(base, action) {
   try { return await action(); } finally { server.close(); }
 }
 
+function read(file, fallback) {
+  try { return fs.readFileSync(file, 'utf8'); }
+  catch (err) { if (err.code !== 'ENOENT') throw err; return fallback; }
+}
+
+function locations(client) {
+  const home = os.homedir();
+  if (client === 'codex') return {
+    file: path.resolve(process.env.CODEX_HOME || path.join(home, '.codex'), 'config.toml'),
+    skill: path.join(home, '.agents', 'skills', 'deploom-upgrade'),
+  };
+  if (client === 'claude') return {
+    file: path.resolve(process.env.CLAUDE_CONFIG_DIR || home, '.claude.json'),
+    skill: path.resolve(process.env.CLAUDE_CONFIG_DIR || path.join(home, '.claude'), 'skills', 'deploom-upgrade'),
+  };
+  if (client !== 'opencode') throw Error('Unknown client');
+  const dir = process.env.OPENCODE_CONFIG_DIR || path.join(process.env.XDG_CONFIG_HOME || path.join(home, '.config'), 'opencode');
+  const choices = ['opencode.json', 'opencode.jsonc'].map(name => path.join(dir, name)).filter(fs.existsSync);
+  if (!process.env.OPENCODE_CONFIG && choices.length > 1) throw Error('Select a config with OPENCODE_CONFIG');
+  return {
+    file: path.resolve(process.env.OPENCODE_CONFIG || choices[0] || path.join(dir, 'opencode.jsonc')),
+    skill: path.resolve(dir, 'skills', 'deploom-upgrade'),
+  };
+}
+
+function writeAtomic(file, data) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const tmp = file + '.' + crypto.randomUUID();
+  try {
+    fs.writeFileSync(tmp, data, { flag: 'wx' });
+    fs.renameSync(tmp, file);
+  } finally { fs.rmSync(tmp, { force: true }); }
+}
+function checkPath(file) {
+  for (let current = path.resolve(file); ; current = path.dirname(current)) {
+    if (fs.lstatSync(current, { throwIfNoEntry: false })?.isSymbolicLink()) {
+      throw Error('Client path contains a link: ' + current);
+    }
+    if (current === path.dirname(current)) break;
+  }
+}
+
+function recover(profile) {
+  const file = path.join(profile, 'transaction.json');
+  if (!fs.existsSync(file)) return;
+  const tx = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const expected = locations(path.basename(profile));
+  checkPath(expected.file);
+  checkPath(expected.skill);
+  if (typeof tx.id !== 'string' || !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(tx.id) ||
+      tx.config !== expected.file || tx.skill !== expected.skill ||
+      tx.stage !== expected.skill + '.stage-' + tx.id || tx.backup !== expected.skill + '.previous-' + tx.id ||
+      typeof tx.hadSkill !== 'boolean' || typeof tx.hadConfig !== 'boolean' ||
+      typeof tx.before !== 'string' || typeof tx.after !== 'string') {
+    throw Error('Cannot recover transaction: client paths or journal changed');
+  }
+  const state = JSON.parse(read(path.join(profile, 'active.json'), 'null'));
+  if (state?.transaction !== tx.id) {
+    if (fs.existsSync(tx.backup) || (!tx.hadSkill && !fs.existsSync(tx.stage))) {
+      if (fs.existsSync(tx.skill)) fs.renameSync(tx.skill, tx.stage);
+      if (fs.existsSync(tx.backup)) fs.renameSync(tx.backup, tx.skill);
+    }
+    if (tx.before !== tx.after && read(tx.config, null) === tx.after) {
+      if (tx.hadConfig) writeAtomic(tx.config, tx.before);
+      else fs.unlinkSync(tx.config);
+    }
+  }
+  fs.rmSync(tx.stage, { recursive: true, force: true });
+  fs.rmSync(tx.backup, { recursive: true, force: true });
+  fs.unlinkSync(file);
+}
 async function launch(profile) {
   const base = path.resolve(profile, '../..');
   await withLock(base, async () => {
-    if (fs.existsSync(path.join(profile, 'transaction.json'))) {
-      throw Error('DepLoom activation is incomplete. Run deploom setup ' + path.basename(profile) + ' to recover.');
-    }
+    recover(profile);
     const { version } = JSON.parse(fs.readFileSync(path.join(profile, 'active.json'), 'utf8'));
     if (typeof version !== 'string' || !versionPattern.test(version)) throw Error('Invalid active version');
     const runtime = path.join(base, 'versions', version);
@@ -78,5 +148,5 @@ async function launch(profile) {
   });
 }
 
-module.exports = { versionPattern, withLock, pythonBin, sitePackages };
+module.exports = { versionPattern, withLock, pythonBin, sitePackages, locations, read, writeAtomic, checkPath, recover };
 if (require.main === module) launch(__dirname).catch(err => { console.error(err.message); process.exitCode = 1; });

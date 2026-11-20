@@ -29,6 +29,20 @@ with tempfile.TemporaryDirectory() as temp:
     python = base / "versions" / version / "bin/python3.13"
     subprocess.run([str(python), "-I", "-B", str(Path(__file__).with_name("smoke_clients.py").resolve()), str(profile)],
                    cwd=profile, env=env, check=True, timeout=180)
+    scripts = Path(__file__).resolve().parent
+    subprocess.run(["node", str(scripts / "codex-skill.cjs"), str(profile)], cwd=profile, env=env, check=True, timeout=90)
+    subprocess.run(["node", str(scripts / "opencode-skill.cjs")], cwd=profile, env=env, check=True, timeout=90)
+    request = {"type": "control_request", "request_id": "check-skill", "request": {"subtype": "initialize"}}
+    result = subprocess.run(["claude", "-p", "--input-format", "stream-json", "--output-format", "stream-json",
+                             "--verbose", "--no-session-persistence"], cwd=profile,
+                            env={**env, "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1", "DISABLE_AUTOUPDATER": "1"},
+                            input=json.dumps(request) + "\n", capture_output=True, text=True, check=True, timeout=90)
+    packets = [json.loads(line) for line in result.stdout.splitlines() if line.strip()]
+    reply = next(p["response"] for p in packets if p["type"] == "control_response"
+                 and p["response"].get("request_id") == "check-skill")
+    if reply["subtype"] != "success" or "deploom-upgrade" not in {c["name"] for c in reply["response"]["commands"]}:
+        raise RuntimeError("Claude Code did not discover the installed Skill")
+    print("Claude Code discovered the installed Skill")
     entry = base / "versions" / version / "lib/python3.13/site-packages/deploom_mcp/__init__.py"
     with entry.open("ab") as stream:
         stream.write(b"\n# modified after installation\n")
