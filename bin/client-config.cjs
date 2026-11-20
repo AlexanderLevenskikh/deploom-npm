@@ -1,34 +1,9 @@
 'use strict';
 const fs = require('node:fs');
 const path = require('node:path');
-const os = require('node:os');
+const { read, locations } = require('./launch.cjs');
 const { execFileSync } = require('node:child_process');
 const jsonc = require('../vendor/jsonc-parser');
-
-function read(file, fallback) {
-  try { return fs.readFileSync(file, 'utf8'); }
-  catch (err) { if (err.code !== 'ENOENT') throw err; return fallback; }
-}
-
-function locations(client) {
-  const home = os.homedir();
-  if (client === 'codex') return {
-    file: path.resolve(process.env.CODEX_HOME || path.join(home, '.codex'), 'config.toml'),
-    skill: path.join(home, '.agents', 'skills', 'deploom-upgrade'),
-  };
-  if (client === 'claude') return {
-    file: path.resolve(process.env.CLAUDE_CONFIG_DIR || home, '.claude.json'),
-    skill: path.resolve(process.env.CLAUDE_CONFIG_DIR || path.join(home, '.claude'), 'skills', 'deploom-upgrade'),
-  };
-  if (client !== 'opencode') throw Error('Unknown client');
-  const dir = process.env.OPENCODE_CONFIG_DIR || path.join(process.env.XDG_CONFIG_HOME || path.join(home, '.config'), 'opencode');
-  const choices = ['opencode.json', 'opencode.jsonc'].map(name => path.join(dir, name)).filter(fs.existsSync);
-  if (!process.env.OPENCODE_CONFIG && choices.length > 1) throw Error('Select a config with OPENCODE_CONFIG');
-  return {
-    file: path.resolve(process.env.OPENCODE_CONFIG || choices[0] || path.join(dir, 'opencode.jsonc')),
-    skill: path.resolve(dir, 'skills', 'deploom-upgrade'),
-  };
-}
 
 function prepareConfig(client, launcher, scratch) {
   const { file, skill } = locations(client);
@@ -83,4 +58,4 @@ function prepareConfig(client, launcher, scratch) {
   }));
   return { file, before, after, skill };
 }
-module.exports = { locations, prepareConfig, read };
+module.exports = { prepareConfig };
