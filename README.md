@@ -4,7 +4,7 @@ This repository builds the Windows x64 distribution of the [DepLoom MCP server a
 
 ## Windows installer
 
-The public package name is `@levencode/deploom`. The first release targets Windows x64 with Node 22 or later. The archive includes CPython, the MCP server, its pinned Core, the upgrade Skill, and third-party notices. Setup copies the runtime to a versioned directory under `%LOCALAPPDATA%\DepLoom\public`. The installed MCP keeps working after npm clears its download cache.
+The public package name is `@levencode/deploom`. The first release targets Windows x64 with Node 22 or later. The archive includes the official PSF embeddable CPython distribution, the MCP server, its pinned Core, the upgrade Skill, and third-party notices. Setup copies the runtime to a versioned directory under `%LOCALAPPDATA%\DepLoom\public`. The installed MCP keeps working after npm clears its download cache.
 
 For the first prerelease, use an exact version on Windows after it appears in the public registry. Choose the client you already have installed.
 
@@ -35,4 +35,6 @@ Use `get_shared_migration_evidence` to look up an exact transition after refresh
 
 ## License
 
-The installer and first-party data tooling use the [Apache License 2.0](LICENSE). The runtime components and advisory data retain their respective licenses.
+The installer and first-party data tooling use the [Apache License 2.0](LICENSE). Runtime components retain their upstream licenses. Installation and redistribution of the Windows binaries are offered subject to the [CPython Windows binary conditions](https://github.com/python/cpython/blob/3.13/PC/crtlicense.txt). Distributors and external users must agree to those terms for the Microsoft code delivered with the Python interpreter. The package contains the complete original terms in `runtime/LICENSE.txt` and `THIRD_PARTY_NOTICES/CPython/LICENSE.txt`.
+
+The two Visual C++ runtime files included with CPython are distributed unchanged as part of that interpreter. The Z3 binaries are built from the pinned Z3 source with MinGW-w64. Their source identity, compiler notices and GCC Runtime Library Exception are included under `THIRD_PARTY_NOTICES/z3-solver/`. The Windows integration includes the pywin32 components used by the MCP. The optional Pythonwin GUI and Exchange MAPI extensions are omitted.

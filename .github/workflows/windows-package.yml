@@ -38,6 +38,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   candidate:
+    needs: solver
     runs-on: windows-2025
     timeout-minutes: 35
     steps:
@@ -78,13 +79,17 @@ jobs:
           $dest = Join-Path build/wheels $name
           Invoke-WebRequest $url -OutFile $dest
           if ((Get-FileHash $dest).Hash -ne $lock.sha256) { throw 'MCP release wheel digest mismatch' }
+      - uses: actions/download-artifact@v4
+        with:
+          name: portable-z3
+          path: build/solver
       - name: Verify public runtime inputs
         run: python -B ci/fetch_inputs.py build/inputs
       - name: Build and inspect the tarball
         run: |
           $wheel = (Get-ChildItem build/wheels/*.whl).FullName
           $hash = (Get-FileHash $wheel).Hash.ToLowerInvariant()
-          python -B ci/assemble.py --python-archive build/inputs/cpython.tar.zst --wheelhouse build/inputs --mcp-wheel $wheel --mcp-sha256 $hash --output build/package
+          python -B ci/assemble.py --python-archive build/inputs/python-embed.zip --solver build/solver --wheelhouse build/inputs --mcp-wheel $wheel --mcp-sha256 $hash --output build/package
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           Push-Location build/package
           npm.cmd pack --offline --pack-destination .. --quiet

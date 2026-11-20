@@ -1,8 +1,11 @@
 {
   "python": {
-    "version": "3.12.16",
-    "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.12.16%2B20261110-x86_64-pc-windows-msvc-pgo-full.tar.zst",
-    "sha256": "b7349ee5a36e10d2cab221822b6b0c0ad0ac715f17d4d78658c5d3c2c81c2500"
+    "version": "3.13.17",
+    "url": "https://www.python.org/ftp/python/3.13.17/python-3.13.17-embed-amd64.zip",
+    "sha256": "9e35319bffedab8b36ad44d8f377cb4f1733bcec257a0b6d04d94f01486ddb38",
+    "sbomSha256": "506dffeea8f9f785e58627051c4898e2c30ac3b3c4c3cc59ce8f96e3a6e46247",
+    "notices": "cpython-3.13.17-notices.zip",
+    "noticesSha256": "f46679ee6b8b4998acdeb6f4c3f9e1f808bfa156f1f9a1578bcb16f056debbee"
   },
   "wheels": [
     {
@@ -32,14 +35,14 @@
     {
       "name": "cffi",
       "version": "2.1.1",
-      "filename": "cffi-2.1.1-cp312-cp312-win_amd64.whl",
-      "sha256": "f53e442b08449d42821fa4a4fba000095af9f62742a500f978a9f557ec44339a"
+      "filename": "cffi-2.1.1-cp313-cp313-win_amd64.whl",
+      "sha256": "1aa5645c30469b09530c4ebca77ebf8f17618293c58f8549cb1a543a50236e7d"
     },
     {
       "name": "charset-normalizer",
       "version": "3.5.2",
-      "filename": "charset_normalizer-3.5.2-cp312-cp312-win_amd64.whl",
-      "sha256": "780fbe7cab297b81dad9fb8dc5eb003c0468ffb0d9e5f65068c53a34661a96bc"
+      "filename": "charset_normalizer-3.5.2-cp313-cp313-win_amd64.whl",
+      "sha256": "78456a747de8dc58360ffa581f30a002baf5aa28cb262536545e91f113ed7639"
     },
     {
       "name": "click",
@@ -122,8 +125,8 @@
     {
       "name": "pydantic_core",
       "version": "2.50.2",
-      "filename": "pydantic_core-2.50.2-cp312-cp312-win_amd64.whl",
-      "sha256": "b381574614245f18fdb2d6d1aa8f149e225869c47b5ee7f81812de8977817314"
+      "filename": "pydantic_core-2.50.2-cp313-cp313-win_amd64.whl",
+      "sha256": "e5c801bdf3cc92274b8fc2c7023c8751e5ae81260c009ac558ff55ce712a2d45"
     },
     {
       "name": "PyJWT",
@@ -146,14 +149,14 @@
     {
       "name": "pywin32",
       "version": "311",
-      "filename": "pywin32-311-cp312-cp312-win_amd64.whl",
-      "sha256": "b8c095edad5c211ff31c05223658e71bf7116daa0ecf3ad85f3201ea3190d067"
+      "filename": "pywin32-311-cp313-cp313-win_amd64.whl",
+      "sha256": "718a38f7e5b058e76aee1c56ddd06908116d35147e133427e59a3983f703a20d"
     },
     {
       "name": "PyYAML",
       "version": "6.0.3",
-      "filename": "pyyaml-6.0.3-cp312-cp312-win_amd64.whl",
-      "sha256": "5fcd34e47f6e0b794d17de1b4ff496c00986e1c83f7ab2fb8fcfe9616ff7477b"
+      "filename": "pyyaml-6.0.3-cp313-cp313-win_amd64.whl",
+      "sha256": "79005a0d97d5ddabfeeea4cf676af11e647e41d81c9a7722a193022accdb6b7c"
     },
     {
       "name": "referencing",
@@ -170,8 +173,8 @@
     {
       "name": "rpds-py",
       "version": "2026.9.1",
-      "filename": "rpds_py-2026.9.1-cp312-cp312-win_amd64.whl",
-      "sha256": "5ce8943f79c2210f7abcc28e86367b03b28d95027fd01c46d2472373ae70c86f"
+      "filename": "rpds_py-2026.9.1-cp313-cp313-win_amd64.whl",
+      "sha256": "3e93b2cd69a9830be33e03945cd7cda940a0a8bfcfbff41d6144f0cb0d3d8bd9"
     },
     {
       "name": "semantic-version",
