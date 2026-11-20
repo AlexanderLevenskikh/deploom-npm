@@ -1,0 +1,48 @@
+name: Build public OSV release
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: public-osv-release
+  cancel-in-progress: false
+jobs:
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write
+      attestations: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s cache
+      - run: python cache/build_osv.py build/osv
+      - uses: actions/attest@v4
+        with:
+          subject-path: build/osv/*
+      - name: Publish the complete data release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          manifest=build/osv/manifest.json
+          tag=$(jq -er '.tag' "$manifest")
+          asset=$(jq -er '.asset' "$manifest")
+          params=(--repo "$GITHUB_REPOSITORY")
+          if ! gh release view "$tag" "${params[@]}" >/dev/null 2>&1; then
+            gh release create "$tag" "${params[@]}" --target "$GITHUB_SHA" --draft --latest=false --title "$tag" --notes "Public npm ecosystem snapshot from OSV."
+          fi
+          if [[ "$(gh release view "$tag" "${params[@]}" --json isDraft --jq .isDraft)" == true ]]; then
+            gh release upload "$tag" "${params[@]}" "$manifest" "build/osv/$asset" --clobber
+            gh release edit "$tag" "${params[@]}" --draft=false --latest=false
+          fi
+          gh release download "$tag" "${params[@]}" --dir build/readback
+          cmp "$manifest" build/readback/manifest.json
+          cmp "build/osv/$asset" "build/readback/$asset"
