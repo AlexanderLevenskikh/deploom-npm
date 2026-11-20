@@ -1,7 +1,7 @@
 {
   "name": "@levencode/deploom",
-  "version": "0.2.21-next.2",
-  "description": "Install the DepLoom MCP server and migration Skill for Windows",
+  "version": "0.2.21-next.3",
+  "description": "Install the DepLoom MCP server and migration Skill for Windows, Linux and macOS",
   "keywords": ["deploom", "mcp", "mcp-server", "dependency-upgrades", "windows", "offline", "codex", "claude-code", "opencode", "osv"],
   "license": "Apache-2.0",
   "repository": {
@@ -10,10 +10,13 @@
   },
   "type": "commonjs",
   "os": [
-    "win32"
+    "win32",
+    "linux",
+    "darwin"
   ],
   "cpu": [
-    "x64"
+    "x64",
+    "arm64"
   ],
   "engines": {
     "node": ">=22"
@@ -25,6 +28,8 @@
     "bin/",
     "vendor/jsonc-parser/",
     "runtime/",
+    "portable-runtime.tar.gz",
+    "posix-offline.json",
     "runtime-manifest.json",
     "THIRD_PARTY_NOTICES/",
     "LICENSE",

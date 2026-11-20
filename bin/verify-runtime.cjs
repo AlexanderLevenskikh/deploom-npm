@@ -37,6 +37,8 @@ function verifyRuntime(root, manifest) {
 module.exports = { verifyRuntime };
 if (require.main === module) {
   const pkg = path.join(__dirname, '..');
-  verifyRuntime(path.join(pkg, 'runtime'), require('../runtime-manifest.json'));
+  if (fs.existsSync(path.join(pkg, 'posix-offline.json'))) {
+    require('./posix-runtime.cjs').verifyArchive(pkg);
+  } else verifyRuntime(path.join(pkg, 'runtime'), require('../runtime-manifest.json'));
   if (!fs.readdirSync(path.join(pkg, 'THIRD_PARTY_NOTICES')).length) throw Error('Missing third-party notices');
 }

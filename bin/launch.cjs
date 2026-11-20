@@ -6,6 +6,13 @@ const crypto = require('node:crypto');
 const { spawn } = require('node:child_process');
 const versionPattern = /^\d+\.\d+\.\d+(?:-[a-z0-9]+(?:\.[a-z0-9]+)*)?$/i;
 
+function pythonBin(runtime) {
+  return path.join(runtime, process.platform === 'win32' ? 'python.exe' : 'bin/python3.13');
+}
+function sitePackages(runtime) {
+  return path.join(runtime, process.platform === 'win32' ? 'Lib/site-packages' : 'lib/python3.13/site-packages');
+}
+
 async function withLock(base, action) {
   const key = crypto.createHash('sha256').update(base.toLowerCase()).digest('hex');
   const server = net.createServer(socket => socket.destroy());
@@ -17,7 +24,11 @@ async function withLock(base, action) {
         function failed(error) { server.off('listening', ready); reject(error); }
         server.once('error', failed);
         server.once('listening', ready);
-        server.listen('\\\\.\\pipe\\deploom-' + key);
+        if (process.platform === 'win32') server.listen('\\\\.\\pipe\\deploom-' + key);
+        else {
+          // A loopback listener releases the lock on process death, including on macOS.
+          server.listen({ host: '127.0.0.1', port: 16384 + parseInt(key.slice(0, 8), 16) % 45000 });
+        }
       });
       break;
     } catch (error) {
@@ -46,7 +57,7 @@ async function launch(profile) {
     fs.mkdirSync(leases, { recursive: true });
     const starting = path.join(leases, 'starting-' + crypto.randomUUID());
     fs.writeFileSync(starting, '', { flag: 'wx' });
-    const child = spawn(path.join(runtime, 'python.exe'), ['-I', '-B', '-m', 'deploom_mcp'], {
+    const child = spawn(pythonBin(runtime), ['-I', '-B', '-m', 'deploom_mcp'], {
       stdio: 'inherit', windowsHide: true, env,
     });
     try {
@@ -67,5 +78,5 @@ async function launch(profile) {
   });
 }
 
-module.exports = { versionPattern, withLock };
+module.exports = { versionPattern, withLock, pythonBin, sitePackages };
 if (require.main === module) launch(__dirname).catch(err => { console.error(err.message); process.exitCode = 1; });

@@ -30,13 +30,20 @@ function locations(client) {
   };
 }
 
+function clientOutput(program, args, options) {
+  if (process.platform === 'win32') {
+    return execFileSync(process.env.ComSpec || 'cmd.exe', ['/d', '/c', [program, ...args].join(' ')], options);
+  }
+  return execFileSync(program, args, options);
+}
+
 function prepareConfig(client, launcher, scratch) {
   const { file, skill } = locations(client);
   if (client === 'codex') {
     const before = read(file, '');
     const copied = path.join(scratch, 'config.toml');
     fs.writeFileSync(copied, before);
-    const list = () => JSON.parse(execFileSync(process.env.ComSpec || 'cmd.exe', ['/d', '/c', 'codex mcp list --json'], {
+    const list = () => JSON.parse(clientOutput('codex', ['mcp', 'list', '--json'], {
       env: { ...process.env, CODEX_HOME: scratch }, cwd: scratch, encoding: 'utf8', windowsHide: true,
     })).find(entry => entry.name === 'deploom');
     const matches = entry => entry?.enabled && entry.transport?.type === 'stdio' &&
@@ -58,7 +65,7 @@ function prepareConfig(client, launcher, scratch) {
     keys = ['mcpServers', 'deploom'];
     entry = { type: 'stdio', command: 'node', args: [launcher] };
   } else {
-    const version = execFileSync(process.env.ComSpec || 'cmd.exe', ['/d', '/c', 'opencode --version'], { encoding: 'utf8', windowsHide: true }).trim();
+    const version = clientOutput('opencode', ['--version'], { encoding: 'utf8', windowsHide: true }).trim();
     const major = /^(?:opencode\s+)?v?([12])\./m.exec(version)?.[1];
     if (!major) throw Error('Supported OpenCode versions are 1.x and 2.x');
     keys = major === '2' ? ['mcp', 'servers', 'deploom'] : ['mcp', 'deploom'];
