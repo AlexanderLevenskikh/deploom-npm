@@ -1,0 +1,41 @@
+{
+  "name": "@levencode/deploom",
+  "version": "0.2.21-next.1",
+  "description": "Install the DepLoom MCP server and migration Skill for Windows",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/levencode-labs/deploom-npm.git"
+  },
+  "type": "commonjs",
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "deploom": "bin/deploom.cjs"
+  },
+  "files": [
+    "bin/",
+    "vendor/jsonc-parser/",
+    "runtime/",
+    "runtime-manifest.json",
+    "THIRD_PARTY_NOTICES/",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "prepack": "node bin/verify-runtime.cjs",
+    "test": "node --test"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public",
+    "tag": "next"
+  }
+}

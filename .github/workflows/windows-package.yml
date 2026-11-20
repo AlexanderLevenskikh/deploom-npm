@@ -1,0 +1,73 @@
+name: Test the Windows npm archive
+on:
+  push:
+    branches: [main, 'feature/**']
+    paths:
+      - 'bin/**'
+      - 'ci/**'
+      - 'licenses/**'
+      - 'vendor/**'
+      - 'package.json'
+      - '.github/workflows/windows-package.yml'
+  pull_request:
+    paths: ['bin/**', 'ci/**', 'licenses/**', 'vendor/**', 'package.json', '.github/workflows/windows-package.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  candidate:
+    runs-on: windows-2025
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: levencode-labs/deploom-mcp
+          ref: 0fc2121adc551e0604f309c64af63f3a885ddf53
+          submodules: true
+          path: build/upstream
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build the public MCP candidate and verify locked public inputs
+        run: |
+          python -m pip install build
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python -m build --wheel build/upstream --outdir build/wheels
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python -B ci/fetch_inputs.py build/inputs
+      - name: Build and inspect the tarball
+        run: |
+          $wheel = (Get-ChildItem build/wheels/*.whl).FullName
+          $hash = (Get-FileHash $wheel).Hash.ToLowerInvariant()
+          python -B ci/assemble.py --python-archive build/inputs/cpython.tar.zst --wheelhouse build/inputs --mcp-wheel $wheel --mcp-sha256 $hash --output build/package
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          Push-Location build/package
+          npm.cmd pack --offline --pack-destination .. --quiet
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          Pop-Location
+          $tarball = (Get-ChildItem build/*.tgz).FullName
+          python -B ci/check_archive.py build/package $tarball
+      - name: Install supported clients for the smoke test
+        run: |
+          npm.cmd install --global @openai/codex@0.165.0 @anthropic-ai/claude-code@2.1.241
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $archive = Join-Path $env:RUNNER_TEMP 'opencode-windows-x64.zip'
+          Invoke-WebRequest 'https://github.com/anomalyco/opencode/releases/download/v2.2.5/opencode-windows-x64.zip' -OutFile $archive
+          if ((Get-FileHash $archive).Hash -ne '2f3bfd6b3527c60c2a882557b20ddc9ba6bdff4b5a8fe61c853da8fcfb3076e8') { throw 'OpenCode digest mismatch' }
+          $dir = Join-Path $env:RUNNER_TEMP 'opencode'
+          Expand-Archive $archive $dir
+          (Get-ChildItem $dir -Recurse -Filter opencode.exe -File).Directory.FullName >> $env:GITHUB_PATH
+      - name: Install offline and run each configured MCP server
+        run: |
+          $tarball = (Get-ChildItem build/*.tgz).FullName
+          ./ci/test-install.ps1 -Tarball $tarball -Work (Join-Path $PWD 'build/smoke')
+      - name: Verify anonymous public cache from two installed profiles
+        run: |
+          & ./build/smoke/install/node_modules/@levencode/deploom/runtime/python.exe -I -B ci/probe_public_cache.py build/live-cache
