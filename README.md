@@ -21,15 +21,15 @@ Windows x64, Node.js 22 or later with npm, and a supported client. Setup copies 
 To install the pinned prerelease from npm, run this command in PowerShell. The example configures Codex. Use `claude` for Claude Code or `opencode` for OpenCode.
 
 ```powershell
-npm.cmd exec --yes --package=@levencode/deploom@0.2.21-next.1 -- deploom setup codex
+npm.cmd exec --yes --package=@levencode/deploom@0.2.21-next.2 -- deploom setup codex
 ```
 
 ## Offline setup
 
-Copy the `.tgz` from the [Windows prerelease](https://github.com/levencode-labs/deploom-npm/releases/tag/npm-v0.2.21-next.1) to the target machine. Open PowerShell in the directory containing the archive. The same command works with an empty npm cache.
+Copy the `.tgz` from the [Windows prerelease](https://github.com/levencode-labs/deploom-npm/releases/tag/npm-v0.2.21-next.2) to the target machine. Open PowerShell in the directory containing the archive. The same command works with an empty npm cache.
 
 ```powershell
-npm.cmd exec --offline --yes --package=./levencode-deploom-0.2.21-next.1.tgz -- deploom setup codex
+npm.cmd exec --offline --yes --package=./levencode-deploom-0.2.21-next.2.tgz -- deploom setup codex
 ```
 
 Restart the client after setup to load the server and discover the Skill.
