@@ -1,0 +1,228 @@
+#!/usr/bin/env node
+'use strict';
+const fs = require('node:fs');
+const path = require('node:path');
+const os = require('node:os');
+const crypto = require('node:crypto');
+const { versionPattern, withLock } = require('./launch.cjs');
+const { execFileSync } = require('node:child_process');
+const { locations, prepareConfig, read } = require('./client-config.cjs');
+const { verifyRuntime } = require('./verify-runtime.cjs');
+
+const pkg = path.join(__dirname, '..');
+const base = path.join(process.env.LOCALAPPDATA || os.homedir(), 'DepLoom', 'public');
+const [command, client] = process.argv.slice(2);
+function versionDir(version) {
+  if (!versionPattern.test(version)) throw Error('Invalid release version');
+  return path.join(base, 'versions', version);
+}
+function writeAtomic(file, data) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const tmp = file + '.' + crypto.randomUUID();
+  try {
+    fs.writeFileSync(tmp, data, { flag: 'wx' });
+    fs.renameSync(tmp, file);
+  } finally { fs.rmSync(tmp, { force: true }); }
+}
+function prepareRuntime(version) {
+  const dest = versionDir(version);
+  const manifest = require('../runtime-manifest.json');
+  if (manifest.cliVersion !== version) throw Error('CLI and runtime manifest differ');
+  if (fs.existsSync(dest)) {
+    verifyRuntime(dest, manifest);
+    return;
+  }
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  const stage = fs.mkdtempSync(dest + '-stage-');
+  try {
+    fs.cpSync(path.join(pkg, 'runtime'), stage, { recursive: true });
+    verifyRuntime(stage, manifest);
+    execFileSync(path.join(stage, 'python.exe'), ['-I', '-B', '-c', 'import deploom_mcp.server'], { windowsHide: true });
+    fs.renameSync(stage, dest);
+  } finally { fs.rmSync(stage, { recursive: true, force: true }); }
+}
+function skillFiles(version) {
+  return path.join(versionDir(version), 'Lib/site-packages/deploom_mcp/resources/skills/deploom-upgrade');
+}
+function checkPath(file) {
+  for (let current = path.resolve(file); ; current = path.dirname(current)) {
+    if (fs.lstatSync(current, { throwIfNoEntry: false })?.isSymbolicLink()) {
+      throw Error('Client path contains a link: ' + current);
+    }
+    if (current === path.dirname(current)) break;
+  }
+}
+
+function copySkill(source, target) {
+  fs.cpSync(source, target, {
+    recursive: true,
+    filter(file) {
+      if (fs.lstatSync(file).isSymbolicLink()) throw Error('Linked Skill entry: ' + file);
+      return true;
+    },
+  });
+}
+function compareSkill(source, target) {
+  for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
+    const from = path.join(source, entry.name);
+    const to = path.join(target, entry.name);
+    const stat = fs.lstatSync(to, { throwIfNoEntry: false });
+    if (entry.isDirectory() && stat?.isDirectory()) compareSkill(from, to);
+    else if (!entry.isFile() || !stat?.isFile() || !fs.readFileSync(from).equals(fs.readFileSync(to))) {
+      throw Error('Installed Skill has local changes: ' + to);
+    }
+  }
+}
+function installSkill(version, stage) {
+  const bundle = path.join(versionDir(version), 'Lib/site-packages/deploom_mcp/resources/scripts/install_skill.py');
+  execFileSync(path.join(versionDir(version), 'python.exe'), ['-I', '-B', bundle, '--target', stage, '--force', '--verify'], { windowsHide: true });
+}
+function recover(profile) {
+  const file = path.join(profile, 'transaction.json');
+  if (!fs.existsSync(file)) return;
+  const tx = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const expected = locations(client);
+  checkPath(expected.file);
+  checkPath(expected.skill);
+  if (typeof tx.id !== 'string' || !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(tx.id) ||
+      tx.config !== expected.file || tx.skill !== expected.skill ||
+      tx.stage !== expected.skill + '.stage-' + tx.id || tx.backup !== expected.skill + '.previous-' + tx.id ||
+      typeof tx.hadSkill !== 'boolean' || typeof tx.hadConfig !== 'boolean' ||
+      typeof tx.before !== 'string' || typeof tx.after !== 'string') {
+    throw Error('Cannot recover transaction: client paths or journal changed');
+  }
+  const state = JSON.parse(read(path.join(profile, 'active.json'), 'null'));
+  if (state?.transaction !== tx.id) {
+    if (fs.existsSync(tx.backup) || (!tx.hadSkill && !fs.existsSync(tx.stage))) {
+      if (fs.existsSync(tx.skill)) fs.renameSync(tx.skill, tx.stage);
+      if (fs.existsSync(tx.backup)) fs.renameSync(tx.backup, tx.skill);
+    }
+    if (tx.before !== tx.after && read(tx.config, null) === tx.after) {
+      if (tx.hadConfig) writeAtomic(tx.config, tx.before);
+      else fs.unlinkSync(tx.config);
+    }
+  }
+  fs.rmSync(tx.stage, { recursive: true, force: true });
+  fs.rmSync(tx.backup, { recursive: true, force: true });
+  fs.unlinkSync(file);
+}
+function activate(profile) {
+  recover(profile);
+  const statePath = path.join(profile, 'active.json');
+  const old = JSON.parse(read(statePath, 'null'));
+  const version = command === 'rollback' ? old?.previous : require('../package.json').version;
+  if (!version) throw Error('No previous release to restore');
+  if (command === 'setup') prepareRuntime(version);
+  const launch = path.join(profile, 'launch.cjs');
+  writeAtomic(launch, fs.readFileSync(path.join(__dirname, 'launch.cjs')));
+  const scratch = fs.mkdtempSync(path.join(profile, 'config-'));
+  try {
+    const cfg = prepareConfig(client, launch, scratch);
+    checkPath(cfg.file);
+    checkPath(cfg.skill);
+    const hadSkill = fs.existsSync(cfg.skill);
+    if (old && old.skill !== cfg.skill) throw Error('Profile Skill directory changed');
+    if (hadSkill) {
+      if (!old) throw Error('A Skill already exists in ' + cfg.skill);
+      compareSkill(skillFiles(old.version), cfg.skill);
+    }
+    if (old?.version === version && hadSkill && cfg.before === cfg.after) return;
+    const id = crypto.randomUUID();
+    const stage = cfg.skill + '.stage-' + id;
+    const backup = cfg.skill + '.previous-' + id;
+    const tx = { id, skill: cfg.skill, stage, backup, hadSkill, config: cfg.file,
+      hadConfig: fs.existsSync(cfg.file), before: cfg.before, after: cfg.after };
+    fs.mkdirSync(path.dirname(cfg.skill), { recursive: true });
+    fs.mkdirSync(stage);
+    try {
+      if (hadSkill) {
+        copySkill(cfg.skill, stage);
+        // Preserve user additions. Remove superseded canonical files from the staged copy.
+        for (const rel of fs.readdirSync(skillFiles(old.version), { recursive: true })) {
+          if (fs.statSync(path.join(skillFiles(old.version), rel)).isFile()) fs.unlinkSync(path.join(stage, rel));
+        }
+      }
+      for (const rel of fs.readdirSync(skillFiles(version), { recursive: true })) {
+        if (fs.statSync(path.join(skillFiles(version), rel)).isFile() && fs.existsSync(path.join(stage, rel))) {
+          throw Error('New Skill file conflicts with a user file: ' + rel);
+        }
+      }
+      installSkill(version, stage);
+      const receiptPath = path.join(stage, '.deploom-skill-install.json');
+      const receipt = JSON.parse(fs.readFileSync(receiptPath, 'utf8'));
+      receipt.target = cfg.skill;
+      writeAtomic(receiptPath, JSON.stringify(receipt, null, 2) + '\n');
+      const beforeSave = read(cfg.file, null);
+      if (beforeSave !== (tx.hadConfig ? cfg.before : null)) throw Error('Client settings changed; retry setup');
+      writeAtomic(path.join(profile, 'transaction.json'), JSON.stringify(tx));
+      if (hadSkill) fs.renameSync(cfg.skill, backup);
+      fs.renameSync(stage, cfg.skill);
+      if (cfg.before !== cfg.after) writeAtomic(cfg.file, cfg.after);
+      writeAtomic(statePath, JSON.stringify({ version, previous: old?.version === version ? old.previous : old?.version,
+        skill: cfg.skill, transaction: id }));
+    } finally {
+      recover(profile);
+      fs.rmSync(stage, { recursive: true, force: true });
+    }
+  } finally { fs.rmSync(scratch, { recursive: true, force: true }); }
+}
+function collectVersions() {
+  const clients = path.join(base, 'clients');
+  const keep = new Set();
+  for (const client of ['opencode', 'codex', 'claude']) {
+    const profile = path.join(clients, client);
+    if (fs.existsSync(path.join(profile, 'transaction.json'))) return;
+    const state = JSON.parse(read(path.join(profile, 'active.json'), 'null'));
+    if (state) {
+      if (!versionPattern.test(state.version) || (state.previous && !versionPattern.test(state.previous))) return;
+      keep.add(state.version);
+      keep.add(state.previous);
+    }
+  }
+  const versions = path.join(base, 'versions');
+  for (const entry of fs.readdirSync(versions, { withFileTypes: true })) {
+    if (!entry.isDirectory() || !versionPattern.test(entry.name) || keep.has(entry.name)) continue;
+    const runs = path.join(base, 'running', entry.name);
+    if (fs.existsSync(runs) && fs.readdirSync(runs).some(name => {
+      // A launcher interrupted before recording its child PID cannot prove the runtime is idle.
+      if (!/^[1-9]\d*$/.test(name)) return true;
+      try { process.kill(Number(name), 0); return true; }
+      catch (error) {
+        if (error.code !== 'ESRCH') return true;
+        fs.rmSync(path.join(runs, name), { force: true });
+        return false;
+      }
+    })) continue;
+    const source = versionDir(entry.name);
+    if (!fs.existsSync(path.join(source, 'Lib/site-packages/deploom_mcp/__init__.py'))) continue;
+    const retired = path.join(versions, '.retired-' + crypto.randomUUID());
+    try { fs.renameSync(source, retired); }
+    catch (error) { if (['EBUSY', 'EPERM', 'EACCES'].includes(error.code)) continue; throw error; }
+    fs.rmSync(retired, { recursive: true, force: true, maxRetries: 3 });
+  }
+}
+
+async function main() {
+  const refreshCache = command === 'cache' && client === 'refresh';
+  const clientCommand = ['setup', 'rollback'].includes(command) && ['opencode', 'codex', 'claude'].includes(client);
+  if ((!refreshCache && !clientCommand) || process.argv.length !== 4) {
+    throw Error('Usage: deploom <setup|rollback> <opencode|codex|claude> or deploom cache refresh');
+  }
+  if (process.platform !== 'win32' || process.arch !== 'x64') throw Error('Windows x64 is required');
+  const profile = path.join(base, 'clients', client);
+  if (!refreshCache) fs.mkdirSync(profile, { recursive: true });
+  await withLock(base, async () => {
+    if (refreshCache) {
+      const version = require('../package.json').version;
+      prepareRuntime(version);
+      execFileSync(path.join(versionDir(version), 'python.exe'),
+        ['-I', '-B', '-m', 'deploom_mcp.public_cache', path.join(base, 'cache', 'osv')],
+        { stdio: 'inherit', windowsHide: true });
+      return;
+    }
+    activate(profile);
+    console.log('DepLoom ready for ' + client + '. Restart the client to load the Skill.');
+    collectVersions();
+  });
+}
+main().catch(err => { console.error(err.message); process.exitCode = 1; });
