@@ -16,7 +16,7 @@ cmake -S z3-solver-4.13.0.0/core -B obj -G Ninja \
   -DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_CXX_FLAGS_RELEASE='-O2 -DNDEBUG' \
   "-DCMAKE_SHARED_LINKER_FLAGS=$linkflags" "-DCMAKE_EXE_LINKER_FLAGS=$linkflags" \
-  -DZ3_INCLUDE_GIT_HASH=OFF -DZ3_INCLUDE_GIT_DESCRIBE=OFF -DZ3_BUILD_LIBZ3_SHARED=ON
+  -DZ3_ENABLE_EXAMPLE_TARGETS=OFF -DZ3_INCLUDE_GIT_HASH=OFF -DZ3_INCLUDE_GIT_DESCRIBE=OFF -DZ3_BUILD_LIBZ3_SHARED=ON
 cmake --build obj --parallel "$(nproc)" --target libz3 shell
 for binary in libz3.dll z3.exe; do
   pattern=$binary
