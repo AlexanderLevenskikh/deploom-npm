@@ -75,6 +75,8 @@ jobs:
           Pop-Location
           $tarball = (Get-ChildItem build/*.tgz).FullName
           python -B ci/check_archive.py build/package $tarball
+      - name: Install offline in a clean Windows Server Core container
+        run: ./ci/test-clean-windows.ps1 -Tarball (Get-ChildItem build/*.tgz).FullName
       - name: Install supported clients for the smoke test
         run: ./ci/install-test-clients.ps1
       - name: Install offline and run each configured MCP server
