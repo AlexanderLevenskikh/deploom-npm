@@ -1,0 +1,21 @@
+name: Verify published cache
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ['pages build and deployment']
+    types: [completed]
+permissions:
+  contents: read
+jobs:
+  read:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python cache/probe_pages.py
