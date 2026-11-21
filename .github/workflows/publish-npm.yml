@@ -40,10 +40,12 @@ jobs:
           integrity=$(jq -er .integrity upstream.json)
           test "$GITHUB_REF_NAME" = "npm-v$version"
           test "$integrity" = "sha512-$(openssl dgst -sha512 -binary "$tarball" | openssl base64 -A)"
+          channel=latest
+          if [[ "$version" == *-* ]]; then channel=next; fi
           if existing=$(npm view "@levencode/deploom@$version" dist.integrity --registry=https://registry.npmjs.org/ 2>/dev/null) && [[ -n "$existing" ]]; then
             test "$existing" = "$integrity"
           else
-            npm publish "./$tarball" --registry=https://registry.npmjs.org/ --access public --tag next --provenance
+            npm publish "./$tarball" --registry=https://registry.npmjs.org/ --access public --tag "$channel" --provenance
           fi
   registry-install:
     needs: publish
@@ -69,6 +71,7 @@ jobs:
           $release = Get-Content verified/upstream.json -Raw | ConvertFrom-Json
           "version=$($release.version)" >> $env:GITHUB_OUTPUT
           $spec = "$($release.name)@$($release.version)"
+          $installSpec = if ($release.version.Contains('-')) { $spec } else { $release.name }
           $env:npm_config_cache = Join-Path $env:RUNNER_TEMP 'new-npm-cache'
           $env:npm_config_registry = 'https://registry.npmjs.org/'
           New-Item -ItemType Directory readback | Out-Null
@@ -89,7 +92,7 @@ jobs:
           New-Item -ItemType Directory -Path $env:USERPROFILE | Out-Null
           Push-Location -LiteralPath $env:USERPROFILE
           try {
-            npm.cmd exec --yes "--package=$spec" -- deploom setup codex
+            npm.cmd exec --yes "--package=$installSpec" -- deploom setup codex
             if ($LASTEXITCODE) { exit $LASTEXITCODE }
           } finally { Pop-Location }
           ./ci/test-install.ps1 -Tarball $received -Work (Join-Path $PWD 'registry-smoke')
@@ -149,7 +152,9 @@ jobs:
         run: |
           set -euo pipefail
           if ! gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --draft --prerelease --latest=false --title "$GITHUB_REF_NAME" --notes "Verified Windows, Linux and macOS npm archives and upstream contract."
+            release_flags=(--latest)
+            if [[ "${GITHUB_REF_NAME#npm-v}" == *-* ]]; then release_flags=(--prerelease --latest=false); fi
+            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --draft "${release_flags[@]}" --title "$GITHUB_REF_NAME" --notes "Verified Windows, Linux and macOS npm archives and upstream contract."
           fi
           if [[ "$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" == true ]]; then
             gh release upload "$GITHUB_REF_NAME" verified/* --repo "$GITHUB_REPOSITORY" --clobber
