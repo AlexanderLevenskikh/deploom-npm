@@ -43,6 +43,7 @@ def collect(version, dest):
         if len(bundles) != 1:
             raise ValueError(f"Missing attestation for {file.name}")
         verify(file, "sha256", bundles[0])
+        bundles[0].rename(dest / f"sha256-{digest}.jsonl")
 
     manifest = dest / "upstream.json"
     verify_asset(manifest)
