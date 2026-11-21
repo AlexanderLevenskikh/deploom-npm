@@ -23,19 +23,21 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: main
           fetch-depth: 0
           persist-credentials: false
       - name: Inspect path list before fetching any contributor blobs
         id: paths
         env:
           GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR: ${{ github.event.pull_request.number }}
           CHANGED: ${{ github.event.pull_request.changed_files }}
           ADDED: ${{ github.event.pull_request.additions }}
           REMOVED: ${{ github.event.pull_request.deletions }}
         run: |
           set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$BASE_SHA"
           # GitHub truncates the files API at 3000; a partial list cannot qualify.
           if (( CHANGED > 3000 )); then exit 1; fi
           gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files?per_page=100" --jq '.[] | [.filename,.previous_filename,.status] | @json' > "$RUNNER_TEMP/paths"
