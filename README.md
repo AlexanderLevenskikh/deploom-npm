@@ -26,10 +26,10 @@ npm.cmd exec --yes --package=@levencode/deploom -- deploom setup codex
 
 ## Offline setup
 
-Copy the `.tgz` from the [Windows release](https://github.com/levencode-labs/deploom-npm/releases/tag/npm-v0.2.22) to the target machine. Open PowerShell in the directory containing the archive. The same command works with an empty npm cache.
+Copy the `.tgz` from the [Windows release](https://github.com/levencode-labs/deploom-npm/releases/tag/npm-v0.2.23) to the target machine. Open PowerShell in the directory containing the archive. The same command works with an empty npm cache.
 
 ```powershell
-npm.cmd exec --offline --yes --package=./levencode-deploom-0.2.22.tgz -- deploom setup codex
+npm.cmd exec --offline --yes --package=./levencode-deploom-0.2.23.tgz -- deploom setup codex
 ```
 
 Restart the client after setup to load the server and discover the Skill.
@@ -44,10 +44,10 @@ For an online installation, run the following from your project. First setup dow
 npm exec --yes --package=@levencode/deploom -- deploom setup codex
 ```
 
-For an offline installation, download the archive matching the destination machine from the [release assets](https://github.com/levencode-labs/deploom-npm/releases/tag/npm-v0.2.22). The available archive prefixes are `deploom-linux-x64`, `deploom-linux-arm64`, and `deploom-darwin-arm64`. For example, on Apple Silicon run the following in the directory containing the file.
+For an offline installation, download the archive matching the destination machine from the [release assets](https://github.com/levencode-labs/deploom-npm/releases/tag/npm-v0.2.23). The available archive prefixes are `deploom-linux-x64`, `deploom-linux-arm64`, and `deploom-darwin-arm64`. For example, on Apple Silicon run the following in the directory containing the file.
 
 ```sh
-npm exec --offline --yes --package=./deploom-darwin-arm64-0.2.22.tgz -- deploom setup codex
+npm exec --offline --yes --package=./deploom-darwin-arm64-0.2.23.tgz -- deploom setup codex
 ```
 
 Use `claude` or `opencode` in place of `codex` to register another client. Keep running Node.js on its native architecture. Intel macOS, Alpine/musl and Windows ARM64 are outside this release's supported matrix.
@@ -67,8 +67,8 @@ DepLoom 0.2.22 can also use the public npm metadata it already fetched for plann
 On Windows, run these commands from the directory containing the official release archive, then restart Codex. The second command downloads the shared snapshot and requires internet access.
 
 ```powershell
-npm.cmd exec --offline --yes --package=./levencode-deploom-0.2.22.tgz -- deploom setup codex
-npm.cmd exec --offline --yes --package=./levencode-deploom-0.2.22.tgz -- deploom cache refresh
+npm.cmd exec --offline --yes --package=./levencode-deploom-0.2.23.tgz -- deploom setup codex
+npm.cmd exec --offline --yes --package=./levencode-deploom-0.2.23.tgz -- deploom cache refresh
 ```
 
 Hosts can still set `DEPLOOM_MCP_PUBLIC_NAMES` to comma-separated exact npm names whose public identity they have independently verified. For mixed projects, declare private scopes such as `@internal` in `DEPLOOM_MCP_PRIVATE_SCOPES`. These scopes take precedence over public identity evidence and are excluded from public metadata and OSV requests.
@@ -97,7 +97,11 @@ Run `python cache/build_osv.py build/osv` with Python 3.12 or newer to create an
 
 Reproduce a migration in a public fixture under `fixtures/<name>/check.cjs`. The fixture should install exact public versions and run the stated check. Once it passes on GitHub, use its immutable commit URL as `source` in a pull request against `docs/v1/history.json` or `docs/v1/knowledge.json`. The record identifies the package, old and new version, and the observed check or named recipe. Reviewers can rerun the fixture before merging. Installed clients only read the snapshots. Project lockfiles, dependency inventories and local results stay on the developer's machine.
 
+For automatic intake, submit only additions to the two data files (up to 10 rows and 3 packages). The validator reads regular Git blobs against the schema shipped by MCP, checks both versions on the public npm registry and matches the exact claim against the maintainer-reviewed evidence.json beside the pinned fixture. One reviewed fixture can support several contributions. A pinned local model on an isolated GitHub runner checks semantics. A failed or unavailable audit leaves the PR for review. Changes to fixtures, code or policies require a maintainer. Arbitrary notes and instructions do not belong in a record.
+
 Use `get_shared_migration_evidence` to look up an exact transition after refreshing the cache. A passing result on the example is advisory. Run the checks that matter for the receiving project.
+
+MCP 0.2.23 and later verify the Ed25519 signature over the domain-separated SHA-256 digest of the exact Pages payload at `v1/cache.json`, using `v1/cache.sig` and the public key bundled with the client. The stdio server refreshes in the background on startup and daily. A network, schema or authenticity failure selects the bundled example. The result reports `snapshotSource`. Restricted corporate mode skips this background network request. Key rotation requires distributing the new public key to clients before retiring the previous one.
 
 ## License
 

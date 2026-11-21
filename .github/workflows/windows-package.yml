@@ -50,7 +50,7 @@ jobs:
         if: ${{ !inputs.release }}
         with:
           repository: levencode-labs/deploom-mcp
-          ref: e1533fba5141d5569c802c2f53304dc5daa6a797
+          ref: 121ed52afffd16bc311fd72fad90e244fb269e50
           submodules: true
           path: build/upstream
           persist-credentials: false
