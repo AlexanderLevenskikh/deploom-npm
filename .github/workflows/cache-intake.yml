@@ -21,43 +21,47 @@ jobs:
       eligible: ${{ steps.validate.outputs.eligible }}
       route: ${{ steps.paths.outputs.route }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          ref: main
-          fetch-depth: 0
-          persist-credentials: false
       - name: Inspect path list before fetching any contributor blobs
         id: paths
         env:
           GH_TOKEN: ${{ github.token }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR: ${{ github.event.pull_request.number }}
-          CHANGED: ${{ github.event.pull_request.changed_files }}
-          ADDED: ${{ github.event.pull_request.additions }}
-          REMOVED: ${{ github.event.pull_request.deletions }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$BASE_SHA"
+          endpoint="repos/$GITHUB_REPOSITORY/pulls/$PR"
+          gh api "$endpoint" --jq '{head:.head.sha,base:.base.sha,changed:.changed_files,added:.additions,removed:.deletions}' > "$RUNNER_TEMP/pr.json"
+          test "$(jq -r .head "$RUNNER_TEMP/pr.json")" = "$HEAD_SHA"
+          test "$(jq -r .base "$RUNNER_TEMP/pr.json")" = "$BASE_SHA"
+          CHANGED=$(jq -er .changed "$RUNNER_TEMP/pr.json")
           # GitHub truncates the files API at 3000; a partial list cannot qualify.
           if (( CHANGED > 3000 )); then exit 1; fi
           gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files?per_page=100" --jq '.[] | [.filename,.previous_filename,.status] | @json' > "$RUNNER_TEMP/paths"
           python - <<'PY'
           import json, os
           from pathlib import Path
+          meta = json.loads((Path(os.environ['RUNNER_TEMP']) / 'pr.json').read_bytes())
           rows = [json.loads(s) for s in (Path(os.environ['RUNNER_TEMP']) / 'paths').read_text().splitlines()]
           allowed = {'docs/v1/history.json', 'docs/v1/knowledge.json'}
           touches = any(name in allowed or old in allowed for name,old,_ in rows)
-          if len(rows) != int(os.environ['CHANGED']):
+          if len(rows) != meta['changed']:
               raise SystemExit('Incomplete PR path inventory')
           only_data = touches and len(rows) <= 2 and all(name in allowed and not old and status == 'modified'
                                                          for name,old,status in rows)
-          if only_data and int(os.environ['ADDED']) + int(os.environ['REMOVED']) > 300:
+          if only_data and meta['added'] + meta['removed'] > 300:
               raise SystemExit('Data change exceeds the review budget')
           route = 'data' if only_data else ('mixed' if touches else 'code')
           with open(os.environ['GITHUB_OUTPUT'],'a') as output:
               print('data=' + str(only_data).lower(), file=output)
               print('route=' + route, file=output)
           PY
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        if: steps.paths.outputs.data == 'true'
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
       - name: Create a job-local Python environment
         if: steps.paths.outputs.data == 'true'
         run: |
@@ -68,7 +72,9 @@ jobs:
         env:
           PR: ${{ github.event.pull_request.number }}
           EXPECTED: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
+          test "$(git rev-parse HEAD)" = "$BASE_SHA"
           git fetch --no-tags --filter=blob:limit=2m origin "refs/pull/$PR/head"
           test "$(git rev-parse FETCH_HEAD)" = "$EXPECTED"
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
