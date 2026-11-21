@@ -10,7 +10,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m unittest discover -s cache -v
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -19,18 +18,19 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: levencode-labs/deploom-mcp
-          ref: e1533fba5141d5569c802c2f53304dc5daa6a797
+          ref: 068f27b2aa4c83b75ca86b41c89e4ed960355010
           path: build/contracts
           persist-credentials: false
+      - run: 'python -m pip install --only-binary=:all: jsonschema==4.25.1'
       - name: Validate the public snapshots with the consumer contract
         env:
           PYTHONPATH: build/contracts/src
         run: |
           python - <<'PY'
-          import json
           from pathlib import Path
-          from deploom_mcp.shared_records import validate
+          from deploom_mcp.record_contract import parse, validate
           for kind in ("history", "knowledge"):
-              rows = json.loads(Path(f"docs/v1/{kind}.json").read_bytes())
+              rows = parse(Path(f"docs/v1/{kind}.json").read_bytes())
               print(kind, len(validate(kind, rows)))
           PY
+          python -m unittest discover -s cache -v

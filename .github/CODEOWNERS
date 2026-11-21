@@ -1,0 +1,3 @@
+# Changes to the verifier or publishing authority require its maintainer.
+/.github/ @AlexanderLevenskikh
+/cache/ @AlexanderLevenskikh

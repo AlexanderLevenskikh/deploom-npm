@@ -122,7 +122,7 @@ async function launch(profile) {
     const env = { ...process.env };
     if (!env.DEPLOOM_MCP_OSV_DIR && fs.existsSync(cache)) env.DEPLOOM_MCP_OSV_DIR = cache;
     const records = path.join(base, 'cache', 'records');
-    if (!env.DEPLOOM_MCP_RECORDS_DIR && fs.existsSync(records)) env.DEPLOOM_MCP_RECORDS_DIR = records;
+    if (!env.DEPLOOM_MCP_RECORDS_DIR) env.DEPLOOM_MCP_RECORDS_DIR = records;
     const leases = path.join(base, 'running', version);
     fs.mkdirSync(leases, { recursive: true });
     const starting = path.join(leases, 'starting-' + crypto.randomUUID());

@@ -97,7 +97,11 @@ Run `python cache/build_osv.py build/osv` with Python 3.12 or newer to create an
 
 Reproduce a migration in a public fixture under `fixtures/<name>/check.cjs`. The fixture should install exact public versions and run the stated check. Once it passes on GitHub, use its immutable commit URL as `source` in a pull request against `docs/v1/history.json` or `docs/v1/knowledge.json`. The record identifies the package, old and new version, and the observed check or named recipe. Reviewers can rerun the fixture before merging. Installed clients only read the snapshots. Project lockfiles, dependency inventories and local results stay on the developer's machine.
 
+For automatic intake, submit only additions to the two data files (up to 10 rows and 3 packages). The validator reads regular Git blobs against the schema shipped by MCP, checks both versions on the public npm registry and reads the referenced fixture from the history of main. A pinned local model on an isolated GitHub runner checks semantics. A failed or unavailable audit leaves the PR for review. Changes to fixtures, code or policies require a maintainer. Arbitrary notes and instructions do not belong in a record.
+
 Use `get_shared_migration_evidence` to look up an exact transition after refreshing the cache. A passing result on the example is advisory. Run the checks that matter for the receiving project.
+
+MCP 0.2.23 and later verify the Ed25519 signature over the domain-separated SHA-256 digest of the exact Pages payload at `v1/cache.json`, using `v1/cache.sig` and the public key bundled with the client. The stdio server refreshes in the background on startup and daily. A network, schema or authenticity failure selects the bundled example. The result reports `snapshotSource`. Restricted corporate mode skips this background network request. Key rotation requires distributing the new public key to clients before retiring the previous one.
 
 ## License
 
