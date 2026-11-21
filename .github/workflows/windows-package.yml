@@ -50,7 +50,7 @@ jobs:
         if: ${{ !inputs.release }}
         with:
           repository: levencode-labs/deploom-mcp
-          ref: cbbd85da6a2337799328f4204f03ad2a44a2a768
+          ref: d8b12697dff262355b8f6316679c3e633f5d5ce3
           submodules: true
           path: build/upstream
           persist-credentials: false
@@ -111,7 +111,7 @@ jobs:
           # Both fixture versions use the qualified runtime to isolate activation behavior.
           node -e "const fs=require('node:fs'); for (const [file,key] of [['package.json','version'],['runtime-manifest.json','cliVersion']]) { const p='build/previous/'+file; const doc=JSON.parse(fs.readFileSync(p)); doc[key]='0.0.0-activation.fixture'; fs.writeFileSync(p,JSON.stringify(doc)); }"
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          node ci/test-activation.cjs build/previous build/package build/activation
+          node ci/verify-activation.cjs build/previous build/package build/activation
       - name: Verify anonymous public cache from two installed profiles
         run: |
           & ./build/smoke/install/node_modules/@levencode/deploom/runtime/python.exe -I -B ci/probe_public_cache.py build/live-cache

@@ -174,10 +174,17 @@ function collectVersions() {
 }
 
 async function main() {
+  if (command === 'cache' && client === 'status' && process.argv.length === 4) {
+    const root = process.env.DEPLOOM_MCP_OSV_DIR || path.join(base, 'cache', 'osv');
+    const result = await require('./cache-status.cjs').cacheStatus(root);
+    console.log(JSON.stringify(result));
+    if (!['fresh', 'expiring'].includes(result.status)) process.exitCode = 1;
+    return;
+  }
   const refreshCache = command === 'cache' && client === 'refresh';
   const clientCommand = ['setup', 'rollback'].includes(command) && ['opencode', 'codex', 'claude'].includes(client);
   if ((!refreshCache && !clientCommand) || process.argv.length !== 4) {
-    throw Error('Usage: deploom <setup|rollback> <opencode|codex|claude> or deploom cache refresh');
+    throw Error('Usage: deploom <setup|rollback> <opencode|codex|claude> or deploom cache <refresh|status>');
   }
   if (process.platform === 'win32') {
     if (process.arch !== 'x64') throw Error('Windows x64 is required');
