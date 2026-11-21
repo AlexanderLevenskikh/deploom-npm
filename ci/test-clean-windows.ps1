@@ -29,6 +29,16 @@ $node = (Get-Command node.exe).Source
 Copy-Item -LiteralPath $node, $Tarball, $PSCommandPath -Destination $stage
 Copy-Item -LiteralPath (Join-Path (Split-Path $node) 'node_modules/npm') -Destination (Join-Path $stage 'npm') -Recurse
 $base = 'mcr.microsoft.com/windows/servercore:ltsc2025'
+# A fresh hosted runner can accept a job before its Windows Docker pipe exists.
+$service = Get-Service -Name docker -ErrorAction SilentlyContinue
+if ($service -and $service.Status -eq 'Stopped') { Start-Service -InputObject $service }
+$deadline = [datetime]::UtcNow.AddMinutes(2)
+do {
+    $engine = docker info --format '{{.OSType}}' 2>$null
+    if ($LASTEXITCODE -eq 0 -and $engine -eq 'windows') { break }
+    if ([datetime]::UtcNow -ge $deadline) { throw 'The Windows Docker engine did not become ready within two minutes' }
+    Start-Sleep -Seconds 4
+} while ($true)
 docker pull $base
 if ($LASTEXITCODE) { exit $LASTEXITCODE }
 $id = docker image inspect $base --format '{{.Id}}'
