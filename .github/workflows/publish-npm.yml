@@ -15,8 +15,33 @@ jobs:
     uses: ./.github/workflows/windows-package.yml
     with:
       release: true
-  publish:
+  source-security:
+    uses: ./.github/workflows/source-security.yml
+  package-security:
     needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: verified-npm
+          path: archives
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: posix-*
+          merge-multiple: true
+          path: archives
+      - run: python3 ci/prepare_security_scan.py archives "$RUNNER_TEMP/scan"
+      - name: Scan the four packed runtimes for known vulnerabilities and secrets
+        run: |
+          docker run --rm --volume "$RUNNER_TEMP/scan:/scan:ro" --volume "$PWD:/out" --env TRIVY_DISABLE_TELEMETRY=true \
+            aquasec/trivy:0.76.2@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb fs --scanners vuln,secret --offline-scan --severity HIGH,CRITICAL --list-all-pkgs --format json --output /out/scan-report.json --timeout 20m /scan
+          python3 ci/prepare_security_scan.py archives "$RUNNER_TEMP/scan" --report scan-report.json
+  publish:
+    needs: [build, source-security, package-security]
     runs-on: ubuntu-latest
     environment: npm
     permissions:
