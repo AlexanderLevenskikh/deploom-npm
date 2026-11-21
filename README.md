@@ -62,7 +62,15 @@ Run `deploom cache status` to inspect the local OSV snapshot. This read-only com
 
 The OSV index contains advisory records for affected npm names. A fresh edition can still yield `UNKNOWN` for a direct dependency. The host can set `DEPLOOM_MCP_PUBLIC_NAMES` to comma-separated exact npm names whose public identity it has verified and `DEPLOOM_MCP_PRIVATE_SCOPES` to comma-separated private scopes such as `@internal` in the MCP server's environment. Private scopes take precedence. For a confirmed public name and a valid exact version, an empty result from a complete local lookup means zero known findings in that edition. Snapshot freshness alone establishes neither package coverage nor that the upstream feed has no newer edition.
 
-In MCP 0.2.21 a configured offline snapshot takes precedence over the registry advisory source. On a build that supports corporate fallback, the host enables `DEPLOOM_MCP_DISABLE_EXTERNAL_EVIDENCE=1` and sets both `DEPLOOM_MCP_REGISTRY_ADVISORY_SOURCE` and `DEPLOOM_MCP_CORPORATE_ADVISORY_SOURCE` to the approved corporate HTTPS registry used by the plan. A package omitted from its bulk response has unconfirmed coverage. A direct dependency plan and a full lockfile audit can have different totals. Compare identical exact package–version pairs and use the same counting unit for both sources.
+In MCP 0.2.21 a configured offline snapshot takes precedence over the registry advisory source. On a build that supports corporate fallback, the host enables `DEPLOOM_MCP_DISABLE_EXTERNAL_EVIDENCE=1` and sets both `DEPLOOM_MCP_REGISTRY_ADVISORY_SOURCE` and `DEPLOOM_MCP_CORPORATE_ADVISORY_SOURCE` to the approved corporate HTTPS registry used by the plan. For private scoped registry dependencies, the host also grants metadata access by setting `DEPLOOM_MCP_ALLOWED_PROJECT_REGISTRY` to that registry. A package omitted from its bulk response has unconfirmed coverage. A direct dependency plan and a full lockfile audit can have different totals. Compare identical exact package–version pairs and use the same counting unit for both sources.
+
+After setting up a CLI version with the coverage diagnostic, run it against the saved Draft result. Keep the original `plan.json` beside `result.json`.
+
+```sh
+deploom diagnose-coverage path/to/result.json
+```
+
+To replay older rows, pass `--snapshot-dir path/to/osv` explicitly and supply the original host scope and public-name settings. The command checks the snapshot identity against the saved run. Add `--inventory path/to/canonical-yarn-inventory.json` to count identical package–version pairs in the saved Yarn inventory, or `--focus package-name` to show reasons for one dependency. The command runs locally using the installed runtime for that CLI version.
 
 ## Release checks
 
