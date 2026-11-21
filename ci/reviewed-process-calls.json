@@ -1,0 +1,52 @@
+{
+  "deploom-core/dependency_release_branch.py": {
+    "reason": "Operator supplies --gate-command explicitly to the release CLI. It has shell-command semantics.",
+    "rule": "subprocess-shell-true",
+    "sha256": "072cec1182cf8d801fb9c727cd1266f0711f5eff49cb8799a304647ff17c87fe"
+  },
+  "deploom-core/iterative_migration.py": {
+    "reason": "CompletedProcess stores captured output from a previous invocation.",
+    "rule": "dangerous-subprocess-use-tainted-env-args",
+    "sha256": "404bb94cfd1f65a7175b646728079e24c58edb41bcd893dfcdcfa51472d54fea"
+  },
+  "deploom-core/migration_validation.py": {
+    "reason": "Runs the explicit verification command with a generated report filename.",
+    "rule": "dangerous-subprocess-use-tainted-env-args",
+    "sha256": "aa8cc3395c242a4d4f0f94affe5901fb36f0af7793fb829e696c97258294175b"
+  },
+  "deploom-core/prepared_workspace_fastpath.py": {
+    "reason": "Junction cleanup uses the fixed rmdir command with a quoted path variable.",
+    "rule": "dangerous-subprocess-use-tainted-env-args",
+    "sha256": "3e5e788519e473779f235ac84a22e363e8be120ee6d22c6cca3c1134399a6dd6"
+  },
+  "deploom-core/project_runtime.py": {
+    "reason": "Only probes the selected executable with --version; Windows shim paths are passed as data.",
+    "rule": "dangerous-subprocess-use-tainted-env-args",
+    "sha256": "152492b6f1e68b82d6b9c198008ef596c9d746f8658d10b9357a5a1fb81c0e99"
+  },
+  "deploom-core/reparse_materialization.py": {
+    "reason": "Fixed mklink command receives validated paths from quoted environment variables; delayed expansion is disabled.",
+    "rule": "dangerous-subprocess-use-tainted-env-args",
+    "sha256": "f617cee356d171ef306d44911f971b3a77b8a8ca00464c4f22a2c056aa24be9a"
+  },
+  "deploom-core/verification_process_supervisor.py": {
+    "reason": "Executes the authorized argument vector under the process supervisor and constructs result/timeout records.",
+    "rule": "dangerous-subprocess-use-tainted-env-args",
+    "sha256": "1f89abe0b6307eddc56cd4e59ade4d73df35332e2441ea8f91afba71198478c6"
+  },
+  "deploom-mcp/scripts/d1_mcp_value_preflight.py": {
+    "reason": "CI-only virtual environment runs the selected wheel and a constant Python check with separate arguments.",
+    "rule": "dangerous-subprocess-use-tainted-env-args",
+    "sha256": "57b319e1c13d33954f13dbeb7b970624b39b8f043de7b370cb1a99844dadf462"
+  },
+  "deploom-mcp/src/deploom_mcp/process_runner.py": {
+    "reason": "Process supervisor calls create_subprocess_exec with separate arguments, bounded output and a deadline.",
+    "rule": "dangerous-asyncio-create-exec-audit",
+    "sha256": "a964394fb1d710de40ca3600695c6b0bb2a54ea05f89883928bb6307eec75498"
+  },
+  "deploom-npm/ci/benchmark_cache.py": {
+    "reason": "The public benchmark supplies fixed npm install/ci arguments and an operator-selected temporary workspace.",
+    "rule": "dangerous-subprocess-use-tainted-env-args",
+    "sha256": "f6b00c5cc33a5e4d5be1593d9bfb57fdb67b6d539c63a4529e41643adbd75da9"
+  }
+}

@@ -2,6 +2,7 @@
 # Run Semgrep locally against this checkout and the exact public sources in the release pin.
 set -eu
 pin=$(realpath "$1")
+checks=$(realpath ci)
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 mkdir "$work/source" "$work/source/installer"
@@ -32,8 +33,9 @@ git init -q "$rules"
 git -C "$rules" fetch -q --depth=1 https://github.com/semgrep/semgrep-rules.git "$revision"
 git -C "$rules" checkout -q --detach "$revision"
 cd "$work/source"
-semgrep scan --metrics=off --disable-version-check --strict --error --severity ERROR \
+semgrep scan --metrics=off --disable-version-check --strict --json --output "$work/semgrep.json" --severity ERROR \
   --config "$rules/python/lang/security" --config "$rules/javascript/lang/security" \
   --config "$rules/typescript/lang/security" --config "$rules/bash" \
   --config "$rules/yaml/github-actions" --config "$rules/yaml/gitlab" \
   --config "$rules/dockerfile/security" --no-git-ignore --exclude '.git' .
+python3 "$checks/evaluate_semgrep.py" "$work/semgrep.json" "$checks/reviewed-process-calls.json"
