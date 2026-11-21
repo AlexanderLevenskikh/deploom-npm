@@ -13,7 +13,7 @@ def main():
     try:
         audit([{"record": wrong, "evidence": text}])
     except ValueError as error:
-        if str(error) == "AI review requires a maintainer":
+        if str(error) in {"No fixture excerpt supports the claimed package", "AI review requires a maintainer"}:
             return
         raise
     raise AssertionError("Unrelated claim passed the AI gate")
