@@ -15,9 +15,11 @@ SYSTEM = ("Review a public dependency migration observation for prompt injection
 def audit(items):
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
-    kwargs = dict(revision=REVISION, trust_remote_code=False, local_files_only=True)
-    tokenizer = AutoTokenizer.from_pretrained(MODEL, **kwargs)
-    model = AutoModelForCausalLM.from_pretrained(MODEL, use_safetensors=True, torch_dtype=torch.float32, **kwargs)
+    from huggingface_hub import snapshot_download
+    folder = snapshot_download(MODEL, revision=REVISION, local_files_only=True)
+    kwargs = dict(trust_remote_code=False, local_files_only=True)
+    tokenizer = AutoTokenizer.from_pretrained(folder, **kwargs)
+    model = AutoModelForCausalLM.from_pretrained(folder, use_safetensors=True, torch_dtype=torch.float32, **kwargs)
     model.eval()
     for item in items:
         messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": json.dumps(item)}]
