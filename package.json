@@ -1,7 +1,8 @@
 {
   "name": "@levencode/deploom",
-  "version": "0.2.21-next.1",
+  "version": "0.2.21-next.2",
   "description": "Install the DepLoom MCP server and migration Skill for Windows",
+  "keywords": ["deploom", "mcp", "mcp-server", "dependency-upgrades", "windows", "offline", "codex", "claude-code", "opencode", "osv"],
   "license": "Apache-2.0",
   "repository": {
     "type": "git",

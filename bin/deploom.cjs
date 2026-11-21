@@ -4,9 +4,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 const crypto = require('node:crypto');
-const { versionPattern, withLock } = require('./launch.cjs');
+const { versionPattern, withLock, read, writeAtomic, checkPath, recover } = require('./launch.cjs');
 const { execFileSync } = require('node:child_process');
-const { locations, prepareConfig, read } = require('./client-config.cjs');
+const { prepareConfig } = require('./client-config.cjs');
 const { verifyRuntime } = require('./verify-runtime.cjs');
 
 const pkg = path.join(__dirname, '..');
@@ -15,14 +15,6 @@ const [command, client] = process.argv.slice(2);
 function versionDir(version) {
   if (!versionPattern.test(version)) throw Error('Invalid release version');
   return path.join(base, 'versions', version);
-}
-function writeAtomic(file, data) {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  const tmp = file + '.' + crypto.randomUUID();
-  try {
-    fs.writeFileSync(tmp, data, { flag: 'wx' });
-    fs.renameSync(tmp, file);
-  } finally { fs.rmSync(tmp, { force: true }); }
 }
 function prepareRuntime(version) {
   const dest = versionDir(version);
@@ -44,15 +36,6 @@ function prepareRuntime(version) {
 function skillFiles(version) {
   return path.join(versionDir(version), 'Lib/site-packages/deploom_mcp/resources/skills/deploom-upgrade');
 }
-function checkPath(file) {
-  for (let current = path.resolve(file); ; current = path.dirname(current)) {
-    if (fs.lstatSync(current, { throwIfNoEntry: false })?.isSymbolicLink()) {
-      throw Error('Client path contains a link: ' + current);
-    }
-    if (current === path.dirname(current)) break;
-  }
-}
-
 function preserveExtras(source, target, previous) {
   for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
     const from = path.join(source, entry.name);
@@ -82,35 +65,6 @@ function compareSkill(source, target) {
 function installSkill(version, stage) {
   const bundle = path.join(versionDir(version), 'Lib/site-packages/deploom_mcp/resources/scripts/install_skill.py');
   execFileSync(path.join(versionDir(version), 'python.exe'), ['-I', '-B', bundle, '--target', stage, '--force', '--verify'], { windowsHide: true });
-}
-function recover(profile) {
-  const file = path.join(profile, 'transaction.json');
-  if (!fs.existsSync(file)) return;
-  const tx = JSON.parse(fs.readFileSync(file, 'utf8'));
-  const expected = locations(client);
-  checkPath(expected.file);
-  checkPath(expected.skill);
-  if (typeof tx.id !== 'string' || !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(tx.id) ||
-      tx.config !== expected.file || tx.skill !== expected.skill ||
-      tx.stage !== expected.skill + '.stage-' + tx.id || tx.backup !== expected.skill + '.previous-' + tx.id ||
-      typeof tx.hadSkill !== 'boolean' || typeof tx.hadConfig !== 'boolean' ||
-      typeof tx.before !== 'string' || typeof tx.after !== 'string') {
-    throw Error('Cannot recover transaction: client paths or journal changed');
-  }
-  const state = JSON.parse(read(path.join(profile, 'active.json'), 'null'));
-  if (state?.transaction !== tx.id) {
-    if (fs.existsSync(tx.backup) || (!tx.hadSkill && !fs.existsSync(tx.stage))) {
-      if (fs.existsSync(tx.skill)) fs.renameSync(tx.skill, tx.stage);
-      if (fs.existsSync(tx.backup)) fs.renameSync(tx.backup, tx.skill);
-    }
-    if (tx.before !== tx.after && read(tx.config, null) === tx.after) {
-      if (tx.hadConfig) writeAtomic(tx.config, tx.before);
-      else fs.unlinkSync(tx.config);
-    }
-  }
-  fs.rmSync(tx.stage, { recursive: true, force: true });
-  fs.rmSync(tx.backup, { recursive: true, force: true });
-  fs.unlinkSync(file);
 }
 function activate(profile) {
   recover(profile);

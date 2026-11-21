@@ -46,6 +46,17 @@ fs.writeFileSync(injector, [
 run(newDir, 'setup', 86, ['--require', injector]);
 assert.equal(state().version, oldVersion);
 assert.ok(fs.existsSync(path.join(profile, 'transaction.json')));
+// Start the actual registered server before another setup can repair the interrupted transaction.
+const probe = spawnSync(path.join(oldDir, 'runtime/python.exe'),
+  ['-I', '-B', path.join(__dirname, 'smoke_clients.py'), root, '--client', 'codex'],
+  { env, cwd: root, encoding: 'utf8', windowsHide: true, timeout: 90000 });
+if (probe.error) throw probe.error;
+assert.equal(probe.status, 0, probe.stderr);
+assert.equal(JSON.parse(probe.stdout.trim()).client, 'codex');
+assert.ok(!fs.existsSync(path.join(profile, 'transaction.json')));
+assert.equal(state().version, oldVersion);
+assert.equal(fs.readFileSync(note, 'utf8'), 'user content');
+assert.equal(fs.readFileSync(configFile, 'utf8'), config);
 run(newDir, 'setup');
 assert.equal(state().version, newVersion);
 assert.equal(state().previous, oldVersion);
