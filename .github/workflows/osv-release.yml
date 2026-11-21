@@ -1,6 +1,8 @@
 name: Build public OSV release
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '43 3 * * *'
 permissions:
   contents: read
 concurrency:
