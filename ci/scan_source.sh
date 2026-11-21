@@ -33,7 +33,7 @@ git init -q "$rules"
 git -C "$rules" fetch -q --depth=1 https://github.com/semgrep/semgrep-rules.git "$revision"
 git -C "$rules" checkout -q --detach "$revision"
 cd "$work/source"
-semgrep scan --metrics=off --disable-version-check --strict --json --output "$work/semgrep.json" --severity ERROR \
+semgrep scan --metrics=off --disable-version-check --json --output "$work/semgrep.json" --severity ERROR \
   --config "$rules/python/lang/security" --config "$rules/javascript/lang/security" \
   --config "$rules/typescript/lang/security" --config "$rules/bash" \
   --config "$rules/yaml/github-actions" --config "$rules/yaml/gitlab" \

@@ -43,7 +43,10 @@ def inventory(directory):
         meta = json.loads(path.read_bytes())
         name, version = meta.get("name"), meta.get("version")
         if name and version:
-            npm[path.parent.relative_to(directory).as_posix() + "/node_modules/" + name] = {"name": name, "version": version}
+            key = "node_modules/" + name
+            if key in npm and npm[key]["version"] != version:
+                key = "node_modules/" + path.parent.relative_to(directory).as_posix() + "/" + key
+            npm[key] = {"name": name, "version": version}
     if not any(name.replace("_", "-").lower() == "deploom-mcp" for name, _ in python):
         raise ValueError("Installed MCP distribution missing from " + str(directory))
     if not any(p["name"] == "jsonc-parser" for p in npm.values()):
@@ -66,8 +69,10 @@ def check_report(root, path):
     for directory, locks in expected.items():
         for file, entries in locks.items():
             filename = directory + "/scan-inventory/" + file
-            result, = [r for r in results if r["Target"].replace("\\\\", "/").endswith(filename)]
-            found = {(norm(pkg["Name"]),pkg["Version"]) for pkg in result.get("Packages", [])}
+            rows = [r for r in results if r["Target"].replace("\\\\", "/").endswith(filename)]
+            if len(rows) != 1:
+                raise ValueError("Missing or ambiguous scanner inventory: " + filename)
+            found = {(norm(pkg["Name"]),pkg["Version"]) for pkg in rows[0].get("Packages", [])}
             missing = {(norm(n),v) for n,v in entries} - found
             if missing:
                 raise ValueError(f"{filename}: scanner missed {sorted(missing)}")

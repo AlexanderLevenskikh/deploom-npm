@@ -7,7 +7,9 @@ import sys
 
 def main(report, reviews):
     data = json.loads(report.read_bytes())
-    if not data.get("paths", {}).get("scanned") or any(e.get("level") == "error" for e in data.get("errors", [])):
+    for error in data.get("errors", []):
+        print("Scanner diagnostic:", error.get("level"), error.get("type"), error.get("path", ""))
+    if not data.get("paths", {}).get("scanned") or any(e.get("level", "").lower() == "error" for e in data.get("errors", [])):
         raise ValueError("Semgrep did not complete source analysis")
     reviewed = json.loads(reviews.read_bytes())
     blocking = []
