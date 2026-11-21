@@ -43,6 +43,10 @@ class IntakeTests(unittest.TestCase):
         head = self.commit()
         with patch.object(self.intake, "npm_version"), patch.object(self.intake, "evidence", return_value="react 18.2.0 18.3.1"):
             self.assertEqual(self.intake.inspect_pr(self.base, head)[0]["record"], row)
+            self.path.with_name("knowledge.json").write_text("[]")
+            self.path.write_text(json.dumps([dict(row, outcome="failed")]))
+            with self.assertRaisesRegex(ValueError, "matching fixture outcome"):
+                self.intake.snapshot(self.commit())
         self.path.write_text("[]")
         with self.assertRaisesRegex(ValueError, "removals"):
             self.intake.inspect_pr(head, self.commit())
