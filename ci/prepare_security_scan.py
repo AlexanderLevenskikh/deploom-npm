@@ -65,15 +65,18 @@ def check_report(root, path):
     expected = json.loads((root / "scan-inventory.json").read_bytes())
     if len(expected) != 4:
         raise ValueError("Expected inventories for four platforms")
-    norm = lambda s: re.sub(r"[-_.]+", "-", s.lower())
     for directory, locks in expected.items():
         for file, entries in locks.items():
             filename = directory + "/scan-inventory/" + file
-            rows = [r for r in results if r["Target"].replace("\\\\", "/").endswith(filename)]
+            rows = [r for r in results if r["Target"].replace("\\", "/").endswith(filename)]
             if len(rows) != 1:
                 raise ValueError("Missing or ambiguous scanner inventory: " + filename)
-            found = {(norm(pkg["Name"]),pkg["Version"]) for pkg in rows[0].get("Packages", [])}
-            missing = {(norm(n),v) for n,v in entries} - found
+            def package_id(name, version):
+                if file == "requirements.txt":
+                    name = re.sub(r"[-_.]+", "-", name.lower())
+                return name, version
+            found = {package_id(pkg["Name"], pkg["Version"]) for pkg in rows[0].get("Packages", [])}
+            missing = {package_id(n, v) for n, v in entries} - found
             if missing:
                 raise ValueError(f"{filename}: scanner missed {sorted(missing)}")
             print(f"{filename}: {len(found)} package versions checked")

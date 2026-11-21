@@ -13,7 +13,7 @@ class WindowsArchiveVersionTests(unittest.TestCase):
             package = Path(temp)
             path = package / "package.json"
             path.write_bytes(original)
-            self.assertEqual(windows_cli_version(package, "0.2.21"), json.loads(original)["version"])
+            self.assertEqual(windows_cli_version(package, json.loads(original)["version"]), json.loads(original)["version"])
             self.assertEqual(path.read_bytes(), original)
             self.assertEqual(windows_cli_version(package, "0.2.22.dev2"), "0.2.22-preview.2")
             expected = {**json.loads(original), "version": "0.2.22-preview.2", "os": ["win32"], "cpu": ["x64"]}

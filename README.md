@@ -26,10 +26,10 @@ npm.cmd exec --yes --package=@levencode/deploom -- deploom setup codex
 
 ## Offline setup
 
-Copy the `.tgz` from the [Windows release](https://github.com/levencode-labs/deploom-npm/releases/tag/npm-v0.2.21) to the target machine. Open PowerShell in the directory containing the archive. The same command works with an empty npm cache.
+Copy the `.tgz` from the [Windows release](https://github.com/levencode-labs/deploom-npm/releases/tag/npm-v0.2.22) to the target machine. Open PowerShell in the directory containing the archive. The same command works with an empty npm cache.
 
 ```powershell
-npm.cmd exec --offline --yes --package=./levencode-deploom-0.2.21.tgz -- deploom setup codex
+npm.cmd exec --offline --yes --package=./levencode-deploom-0.2.22.tgz -- deploom setup codex
 ```
 
 Restart the client after setup to load the server and discover the Skill.
@@ -44,10 +44,10 @@ For an online installation, run the following from your project. First setup dow
 npm exec --yes --package=@levencode/deploom -- deploom setup codex
 ```
 
-For an offline installation, download the archive matching the destination machine from the [release assets](https://github.com/levencode-labs/deploom-npm/releases/tag/npm-v0.2.21). The available archive prefixes are `deploom-linux-x64`, `deploom-linux-arm64`, and `deploom-darwin-arm64`. For example, on Apple Silicon run the following in the directory containing the file.
+For an offline installation, download the archive matching the destination machine from the [release assets](https://github.com/levencode-labs/deploom-npm/releases/tag/npm-v0.2.22). The available archive prefixes are `deploom-linux-x64`, `deploom-linux-arm64`, and `deploom-darwin-arm64`. For example, on Apple Silicon run the following in the directory containing the file.
 
 ```sh
-npm exec --offline --yes --package=./deploom-darwin-arm64-0.2.21.tgz -- deploom setup codex
+npm exec --offline --yes --package=./deploom-darwin-arm64-0.2.22.tgz -- deploom setup codex
 ```
 
 Use `claude` or `opencode` in place of `codex` to register another client. Keep running Node.js on its native architecture. Intel macOS, Alpine/musl and Windows ARM64 are outside this release's supported matrix.
@@ -62,18 +62,18 @@ Run `deploom cache status` to inspect the local OSV snapshot. This read-only com
 
 For a public npm project, `get_upgrade_plan` works with OSV alone. On a clean installation with external evidence enabled, the planner sends package names and versions to the public OSV API. When the launcher selects a snapshot, the planner checks advisories locally. Resolving package versions can still require registry access. A stale snapshot or an inconclusive lookup produces `UNKNOWN`.
 
-The **0.2.22-preview.2 Windows build** can also use the public npm metadata it already fetched for planning. If an anonymous response directly from `https://registry.npmjs.org` confirms the name and exact version, the planner can report zero known findings when the fresh snapshot has no matching advisory. For example, `clsx@2.1.1` can be assessed even in an edition containing no entries for `clsx`. In this case the row reports `publicIdentitySource: NPM_PUBLIC_PACKUMENT`, and the advisory check makes no additional network request. A registry mirror, a system proxy or metadata for another version cannot establish this identity. The released 0.2.21 build requires a host-confirmed public name when there are no advisory rows for the package.
+DepLoom 0.2.22 can also use the public npm metadata it already fetched for planning. If an anonymous response directly from `https://registry.npmjs.org` confirms the name and exact version, the planner can report zero known findings when the fresh snapshot has no matching advisory. For example, `clsx@2.1.1` can be assessed even in an edition containing no entries for `clsx`. In this case the row reports `publicIdentitySource: NPM_PUBLIC_PACKUMENT`, and the advisory check makes no additional network request. A registry mirror, a system proxy or metadata for another version cannot establish this identity.
 
-If you received the preview archive directly, run these commands from its directory in PowerShell, then restart Codex. The second command downloads the shared snapshot and requires internet access.
+On Windows, run these commands from the directory containing the official release archive, then restart Codex. The second command downloads the shared snapshot and requires internet access.
 
 ```powershell
-npm.cmd exec --offline --yes --package=./levencode-deploom-0.2.22-preview.2.tgz -- deploom setup codex
-npm.cmd exec --offline --yes --package=./levencode-deploom-0.2.22-preview.2.tgz -- deploom cache refresh
+npm.cmd exec --offline --yes --package=./levencode-deploom-0.2.22.tgz -- deploom setup codex
+npm.cmd exec --offline --yes --package=./levencode-deploom-0.2.22.tgz -- deploom cache refresh
 ```
 
-Hosts can still set `DEPLOOM_MCP_PUBLIC_NAMES` to comma-separated exact npm names whose public identity they have independently verified. For mixed projects, declare private scopes such as `@internal` in `DEPLOOM_MCP_PRIVATE_SCOPES`. In the preview these scopes take precedence over public identity evidence and are excluded from public metadata and OSV requests. The published 0.2.21 online path can send private names to OSV when external evidence is enabled.
+Hosts can still set `DEPLOOM_MCP_PUBLIC_NAMES` to comma-separated exact npm names whose public identity they have independently verified. For mixed projects, declare private scopes such as `@internal` in `DEPLOOM_MCP_PRIVATE_SCOPES`. These scopes take precedence over public identity evidence and are excluded from public metadata and OSV requests.
 
-In MCP 0.2.21 a configured offline snapshot takes precedence over the registry advisory source. On a build that supports corporate fallback, the host enables `DEPLOOM_MCP_DISABLE_EXTERNAL_EVIDENCE=1` and sets both `DEPLOOM_MCP_REGISTRY_ADVISORY_SOURCE` and `DEPLOOM_MCP_CORPORATE_ADVISORY_SOURCE` to the approved corporate HTTPS registry used by the plan. For private scoped registry dependencies, the host also grants metadata access by setting `DEPLOOM_MCP_ALLOWED_PROJECT_REGISTRY` to that registry. A package omitted from its bulk response has unconfirmed coverage. A direct dependency plan and a full lockfile audit can have different totals. Compare identical exact package–version pairs and use the same counting unit for both sources.
+For corporate fallback from a local snapshot, the host enables `DEPLOOM_MCP_DISABLE_EXTERNAL_EVIDENCE=1` and sets both `DEPLOOM_MCP_REGISTRY_ADVISORY_SOURCE` and `DEPLOOM_MCP_CORPORATE_ADVISORY_SOURCE` to the approved corporate HTTPS registry used by the plan. For private scoped registry dependencies, the host also grants metadata access by setting `DEPLOOM_MCP_ALLOWED_PROJECT_REGISTRY` to that registry. A package omitted from its bulk response has unconfirmed coverage. A direct dependency plan and a full lockfile audit can have different totals. Compare identical exact package–version pairs and use the same counting unit for both sources.
 
 After setting up a CLI version with the coverage diagnostic, run it against the saved Draft result. Keep the original `plan.json` beside `result.json`.
 
@@ -86,6 +86,8 @@ To replay older rows, pass `--snapshot-dir path/to/osv` explicitly and supply th
 ## Release checks
 
 The Windows CI workflow builds a development wheel from the pinned public sources, verifies the CPython archive and every wheel against the lock file, and checks the actual npm tarball. The release workflow pins the official MCP wheel in `ci/mcp-release.json`, tests the packed bytes on Windows, and publishes the same archive to npm using the `latest` tag for stable versions and `next` for prereleases with GitHub OIDC. A second Windows runner checks the npm download and the exact-version install before the GitHub release publishes `upstream.json` and the tarball for downstream import. To run the installation test on Windows with the three clients on PATH, use `ci/test-install.ps1 -Tarball <archive> -Work <new-directory>`.
+
+Semgrep scans the installer and exact Core and MCP revisions. Trivy scans the four unpacked runtimes and checks that it recognized the installed Python and npm package versions. High or critical findings and unreviewed security rules block publication. The source report also lists variable subprocess calls for audit.
 
 ## Public data
 
