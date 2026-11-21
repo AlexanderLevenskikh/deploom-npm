@@ -31,7 +31,8 @@ function Invoke-Consumer([string]$Selector, [string]$Action, [string]$Expected) 
 Push-Location -LiteralPath $profileRoot
 try {
     Invoke-Consumer $Previous setup $Previous
-    Invoke-Consumer next setup $Current
+    $channel = if ($Current.Contains('-')) { 'next' } else { 'latest' }
+    Invoke-Consumer $channel setup $Current
     Invoke-Consumer $Current rollback $Previous
-    Write-Output "Registry rollback verified: $Previous -> next ($Current) -> $Previous"
+    Write-Output "Registry rollback verified: $Previous -> $channel ($Current) -> $Previous"
 } finally { Pop-Location }

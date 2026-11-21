@@ -31,9 +31,10 @@ jobs:
         env:
           EXPECTED_VERSION: ${{ inputs.expected-version }}
         run: |
-          $current = npm.cmd view '@levencode/deploom@next' version --registry=https://registry.npmjs.org/ --prefer-online
-          if ($LASTEXITCODE -or $current -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$') { throw 'Public next version unavailable' }
-          if ($env:EXPECTED_VERSION -and $current -cne $env:EXPECTED_VERSION) { throw 'Unexpected version on the public next channel' }
+          $channel = if ($env:EXPECTED_VERSION -and !$env:EXPECTED_VERSION.Contains('-')) { 'latest' } else { 'next' }
+          $current = npm.cmd view "@levencode/deploom@$channel" version --registry=https://registry.npmjs.org/ --prefer-online
+          if ($LASTEXITCODE -or $current -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$') { throw 'Public channel version unavailable' }
+          if ($env:EXPECTED_VERSION -and $current -cne $env:EXPECTED_VERSION) { throw 'Unexpected version on the public channel' }
           "version=$current" >> $env:GITHUB_OUTPUT
           $versions = npm.cmd view '@levencode/deploom' versions --json --registry=https://registry.npmjs.org/ --prefer-online
           if ($LASTEXITCODE) { throw 'Unable to read published npm versions' }

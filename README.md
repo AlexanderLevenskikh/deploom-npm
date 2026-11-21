@@ -18,18 +18,18 @@ Use one package with Codex, Claude Code, or OpenCode. It includes the [MCP serve
 
 Windows x64, Node.js 22 or later with npm, and a supported client. Setup copies the runtime to a versioned directory under `%LOCALAPPDATA%\DepLoom\public`. The installed MCP keeps working after npm clears its download cache.
 
-To install the pinned prerelease from npm, run this command in PowerShell. The example configures Codex. Use `claude` for Claude Code or `opencode` for OpenCode.
+To install the stable release from npm, run this command in PowerShell. The example configures Codex. Use `claude` for Claude Code or `opencode` for OpenCode.
 
 ```powershell
-npm.cmd exec --yes --package=@levencode/deploom@0.2.21-next.2 -- deploom setup codex
+npm.cmd exec --yes --package=@levencode/deploom -- deploom setup codex
 ```
 
 ## Offline setup
 
-Copy the `.tgz` from the [Windows prerelease](https://github.com/levencode-labs/deploom-npm/releases/tag/npm-v0.2.21-next.2) to the target machine. Open PowerShell in the directory containing the archive. The same command works with an empty npm cache.
+Copy the `.tgz` from the [Windows release](https://github.com/levencode-labs/deploom-npm/releases/tag/npm-v0.2.21) to the target machine. Open PowerShell in the directory containing the archive. The same command works with an empty npm cache.
 
 ```powershell
-npm.cmd exec --offline --yes --package=./levencode-deploom-0.2.21-next.2.tgz -- deploom setup codex
+npm.cmd exec --offline --yes --package=./levencode-deploom-0.2.21.tgz -- deploom setup codex
 ```
 
 Restart the client after setup to load the server and discover the Skill.
@@ -41,13 +41,13 @@ Use Node.js 22 or newer with npm. The Linux builds target glibc on x64 and ARM64
 For an online installation, run the following from your project. First setup downloads a private CPython interpreter from GitHub and hash-checked packages from PyPI and the DepLoom MCP release. The installed server runs locally.
 
 ```sh
-npm exec --yes --package=@levencode/deploom@0.2.21-next.4 -- deploom setup codex
+npm exec --yes --package=@levencode/deploom -- deploom setup codex
 ```
 
-For an offline installation, download the archive matching the destination machine from the [prerelease assets](https://github.com/levencode-labs/deploom-npm/releases/tag/npm-v0.2.21-next.4). The available archive prefixes are `deploom-linux-x64`, `deploom-linux-arm64`, and `deploom-darwin-arm64`. For example, on Apple Silicon run the following in the directory containing the file.
+For an offline installation, download the archive matching the destination machine from the [release assets](https://github.com/levencode-labs/deploom-npm/releases/tag/npm-v0.2.21). The available archive prefixes are `deploom-linux-x64`, `deploom-linux-arm64`, and `deploom-darwin-arm64`. For example, on Apple Silicon run the following in the directory containing the file.
 
 ```sh
-npm exec --offline --yes --package=./deploom-darwin-arm64-0.2.21-next.4.tgz -- deploom setup codex
+npm exec --offline --yes --package=./deploom-darwin-arm64-0.2.21.tgz -- deploom setup codex
 ```
 
 Use `claude` or `opencode` in place of `codex` to register another client. Keep running Node.js on its native architecture. Intel macOS, Alpine/musl and Windows ARM64 are outside this release's supported matrix.
@@ -58,7 +58,7 @@ To switch back to the previous version retained for that client, run `deploom ro
 
 ## Release checks
 
-The Windows CI workflow builds a development wheel from the pinned public sources, verifies the CPython archive and every wheel against the lock file, and checks the actual npm tarball. The release workflow pins the official MCP wheel in `ci/mcp-release.json`, tests the packed bytes on Windows, and publishes the same archive to the npm `next` tag using GitHub OIDC. A second Windows runner checks the npm download and the exact-version install before the GitHub release publishes `upstream.json` and the tarball for downstream import. To run the installation test on Windows with the three clients on PATH, use `ci/test-install.ps1 -Tarball <archive> -Work <new-directory>`.
+The Windows CI workflow builds a development wheel from the pinned public sources, verifies the CPython archive and every wheel against the lock file, and checks the actual npm tarball. The release workflow pins the official MCP wheel in `ci/mcp-release.json`, tests the packed bytes on Windows, and publishes the same archive to npm using the `latest` tag for stable versions and `next` for prereleases with GitHub OIDC. A second Windows runner checks the npm download and the exact-version install before the GitHub release publishes `upstream.json` and the tarball for downstream import. To run the installation test on Windows with the three clients on PATH, use `ci/test-install.ps1 -Tarball <archive> -Work <new-directory>`.
 
 ## Public data
 
