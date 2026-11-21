@@ -35,8 +35,14 @@ jobs:
           if ($LASTEXITCODE -or $current -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$') { throw 'Public next version unavailable' }
           if ($env:EXPECTED_VERSION -and $current -cne $env:EXPECTED_VERSION) { throw 'Unexpected version on the public next channel' }
           "version=$current" >> $env:GITHUB_OUTPUT
-          $previousTag = git describe --first-parent --tags --abbrev=0 --match 'npm-v*' "npm-v$current^1"
-          if ($LASTEXITCODE -or $previousTag -notlike 'npm-v*') { throw 'Previous npm release tag missing' }
+          $versions = npm.cmd view '@levencode/deploom' versions --json --registry=https://registry.npmjs.org/ --prefer-online
+          if ($LASTEXITCODE) { throw 'Unable to read published npm versions' }
+          $published = $versions -join "`n" | ConvertFrom-Json
+          $previousTag = "npm-v$current"
+          do {
+            $previousTag = git describe --first-parent --tags --abbrev=0 --match 'npm-v*' "${previousTag}^1"
+            if ($LASTEXITCODE -or $previousTag -notlike 'npm-v*') { throw 'No previous published npm release tag' }
+          } until ($published -ccontains $previousTag.Substring(5))
           ./ci/test-registry-rollback.ps1 -Previous $previousTag.Substring(5) -Current $current -Work (Join-Path $env:RUNNER_TEMP 'rollback-consumer')
   offline-evidence:
     if: ${{ !inputs.expected-version }}

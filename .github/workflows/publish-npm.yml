@@ -95,6 +95,9 @@ jobs:
           ./ci/test-install.ps1 -Tarball $received -Work (Join-Path $PWD 'registry-smoke')
   registry-rollback:
     needs: registry-install
+    permissions:
+      contents: read
+      attestations: read
     uses: ./.github/workflows/registry-rollback.yml
     with:
       expected-version: ${{ needs.registry-install.outputs.version }}

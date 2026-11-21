@@ -41,13 +41,13 @@ Use Node.js 22 or newer with npm. The Linux builds target glibc on x64 and ARM64
 For an online installation, run the following from your project. First setup downloads a private CPython interpreter from GitHub and hash-checked packages from PyPI and the DepLoom MCP release. The installed server runs locally.
 
 ```sh
-npm exec --yes --package=@levencode/deploom@0.2.21-next.3 -- deploom setup codex
+npm exec --yes --package=@levencode/deploom@0.2.21-next.4 -- deploom setup codex
 ```
 
-For an offline installation, download the archive matching the destination machine from the [prerelease assets](https://github.com/levencode-labs/deploom-npm/releases/tag/npm-v0.2.21-next.3). The available archive prefixes are `deploom-linux-x64`, `deploom-linux-arm64`, and `deploom-darwin-arm64`. For example, on Apple Silicon run the following in the directory containing the file.
+For an offline installation, download the archive matching the destination machine from the [prerelease assets](https://github.com/levencode-labs/deploom-npm/releases/tag/npm-v0.2.21-next.4). The available archive prefixes are `deploom-linux-x64`, `deploom-linux-arm64`, and `deploom-darwin-arm64`. For example, on Apple Silicon run the following in the directory containing the file.
 
 ```sh
-npm exec --offline --yes --package=./deploom-darwin-arm64-0.2.21-next.3.tgz -- deploom setup codex
+npm exec --offline --yes --package=./deploom-darwin-arm64-0.2.21-next.4.tgz -- deploom setup codex
 ```
 
 Use `claude` or `opencode` in place of `codex` to register another client. Keep running Node.js on its native architecture. Intel macOS, Alpine/musl and Windows ARM64 are outside this release's supported matrix.
