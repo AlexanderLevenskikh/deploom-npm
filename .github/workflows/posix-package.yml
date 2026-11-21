@@ -1,0 +1,40 @@
+name: Test native Linux and macOS npm archives
+on:
+  push:
+    paths: ['bin/**', 'ci/*posix*', 'package.json', '.github/workflows/posix-package.yml']
+  pull_request:
+    paths: ['bin/**', 'ci/*posix*', 'package.json', '.github/workflows/posix-package.yml']
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-15]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Build a self-contained archive from pinned public inputs
+        run: node ci/pack-posix.cjs native-build
+      - name: Install client CLIs
+        run: |
+          npm install --prefix "$RUNNER_TEMP/deploom-clients" @openai/codex@0.165.0 @anthropic-ai/claude-code@2.1.241
+          python3 ci/posix-opencode.py "$RUNNER_TEMP/deploom-clients/node_modules/.bin"
+      - name: Install offline and call each registered MCP
+        run: PATH="$RUNNER_TEMP/deploom-clients/node_modules/.bin:$PATH" python3 ci/test-posix.py native-build/*.tgz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: posix-${{ matrix.runner }}
+          path: native-build/*.tgz
+          if-no-files-found: error

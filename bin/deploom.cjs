@@ -4,13 +4,15 @@ const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 const crypto = require('node:crypto');
-const { versionPattern, withLock, read, writeAtomic, checkPath, recover } = require('./launch.cjs');
+const { versionPattern, withLock, pythonBin, sitePackages, read, writeAtomic, checkPath, recover } = require('./launch.cjs');
 const { execFileSync } = require('node:child_process');
 const { prepareConfig } = require('./client-config.cjs');
 const { verifyRuntime } = require('./verify-runtime.cjs');
 
 const pkg = path.join(__dirname, '..');
-const base = path.join(process.env.LOCALAPPDATA || os.homedir(), 'DepLoom', 'public');
+const dataHome = process.platform === 'win32' ? process.env.LOCALAPPDATA || os.homedir()
+  : process.env.XDG_DATA_HOME || path.join(os.homedir(), process.platform === 'darwin' ? 'Library/Application Support' : '.local/share');
+const base = path.join(dataHome, 'DepLoom', 'public');
 const [command, client] = process.argv.slice(2);
 function versionDir(version) {
   if (!versionPattern.test(version)) throw Error('Invalid release version');
@@ -18,6 +20,26 @@ function versionDir(version) {
 }
 function prepareRuntime(version) {
   const dest = versionDir(version);
+  if (process.platform !== 'win32') {
+    const installer = require('./posix-runtime.cjs');
+    const stamp = path.join(dest, '.deploom-install.json');
+    const receipt = dir => JSON.stringify({ version, target: installer.target,
+      lock: installer.sha(path.join(pkg, 'bin/posix-requirements.txt')), tree: installer.runtimeDigest(dir) });
+    if (fs.existsSync(dest)) {
+      if (read(stamp, null) !== receipt(dest) || !fs.existsSync(pythonBin(dest))) throw Error('Installed runtime is incomplete');
+      return;
+    }
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    const work = fs.mkdtempSync(dest + '-stage-');
+    try {
+      const runtime = path.join(work, 'runtime');
+      fs.mkdirSync(runtime);
+      installer.buildRuntime(runtime, pkg, work);
+      fs.writeFileSync(path.join(runtime, '.deploom-install.json'), receipt(runtime), { flag: 'wx' });
+      fs.renameSync(runtime, dest);
+    } finally { fs.rmSync(work, { recursive: true, force: true }); }
+    return;
+  }
   const manifest = require('../runtime-manifest.json');
   if (manifest.cliVersion !== version) throw Error('CLI and runtime manifest differ');
   if (fs.existsSync(dest)) {
@@ -34,7 +56,7 @@ function prepareRuntime(version) {
   } finally { fs.rmSync(stage, { recursive: true, force: true }); }
 }
 function skillFiles(version) {
-  return path.join(versionDir(version), 'Lib/site-packages/deploom_mcp/resources/skills/deploom-upgrade');
+  return path.join(sitePackages(versionDir(version)), 'deploom_mcp/resources/skills/deploom-upgrade');
 }
 function preserveExtras(source, target, previous) {
   for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
@@ -63,8 +85,8 @@ function compareSkill(source, target) {
   }
 }
 function installSkill(version, stage) {
-  const bundle = path.join(versionDir(version), 'Lib/site-packages/deploom_mcp/resources/scripts/install_skill.py');
-  execFileSync(path.join(versionDir(version), 'python.exe'), ['-I', '-B', bundle, '--target', stage, '--force', '--verify'], { windowsHide: true });
+  const bundle = path.join(sitePackages(versionDir(version)), 'deploom_mcp/resources/scripts/install_skill.py');
+  execFileSync(pythonBin(versionDir(version)), ['-I', '-B', bundle, '--target', stage, '--force', '--verify'], { windowsHide: true });
 }
 function activate(profile) {
   recover(profile);
@@ -143,7 +165,7 @@ function collectVersions() {
       }
     })) continue;
     const source = versionDir(entry.name);
-    if (!fs.existsSync(path.join(source, 'Lib/site-packages/deploom_mcp/__init__.py'))) continue;
+    if (!fs.existsSync(path.join(sitePackages(source), 'deploom_mcp/__init__.py'))) continue;
     const retired = path.join(versions, '.retired-' + crypto.randomUUID());
     try { fs.renameSync(source, retired); }
     catch (error) { if (['EBUSY', 'EPERM', 'EACCES'].includes(error.code)) continue; throw error; }
@@ -157,14 +179,16 @@ async function main() {
   if ((!refreshCache && !clientCommand) || process.argv.length !== 4) {
     throw Error('Usage: deploom <setup|rollback> <opencode|codex|claude> or deploom cache refresh');
   }
-  if (process.platform !== 'win32' || process.arch !== 'x64') throw Error('Windows x64 is required');
+  if (process.platform === 'win32') {
+    if (process.arch !== 'x64') throw Error('Windows x64 is required');
+  } else require('./posix-runtime.cjs').checkPlatform();
   const profile = path.join(base, 'clients', client);
   if (!refreshCache) fs.mkdirSync(profile, { recursive: true });
   await withLock(base, async () => {
     if (refreshCache) {
       const version = require('../package.json').version;
       prepareRuntime(version);
-      execFileSync(path.join(versionDir(version), 'python.exe'),
+      execFileSync(pythonBin(versionDir(version)),
         ['-I', '-B', '-m', 'deploom_mcp.public_cache', path.join(base, 'cache', 'osv')],
         { stdio: 'inherit', windowsHide: true });
       return;

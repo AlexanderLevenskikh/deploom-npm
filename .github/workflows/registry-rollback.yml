@@ -1,0 +1,66 @@
+name: Verify published npm update and rollback
+on:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      expected-version:
+        type: string
+        required: true
+  push:
+    paths: ['ci/test-registry-rollback.ps1', 'ci/verify-published-release.py', '.github/workflows/registry-rollback.yml']
+permissions:
+  contents: read
+jobs:
+  consumer:
+    runs-on: windows-2025
+    outputs:
+      version: ${{ steps.published.outputs.version }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install the consumer CLI
+        run: npm.cmd install --global @openai/codex@0.165.0
+      - name: Install both published releases and exercise the registered MCP after each switch
+        id: published
+        env:
+          EXPECTED_VERSION: ${{ inputs.expected-version }}
+        run: |
+          $current = npm.cmd view '@levencode/deploom@next' version --registry=https://registry.npmjs.org/ --prefer-online
+          if ($LASTEXITCODE -or $current -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$') { throw 'Public next version unavailable' }
+          if ($env:EXPECTED_VERSION -and $current -cne $env:EXPECTED_VERSION) { throw 'Unexpected version on the public next channel' }
+          "version=$current" >> $env:GITHUB_OUTPUT
+          $previousTag = git describe --first-parent --tags --abbrev=0 --match 'npm-v*' "npm-v$current^1"
+          if ($LASTEXITCODE -or $previousTag -notlike 'npm-v*') { throw 'Previous npm release tag missing' }
+          ./ci/test-registry-rollback.ps1 -Previous $previousTag.Substring(5) -Current $current -Work (Join-Path $env:RUNNER_TEMP 'rollback-consumer')
+  offline-evidence:
+    if: ${{ !inputs.expected-version }}
+    needs: consumer
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      attestations: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify published assets and collect offline evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.consumer.outputs.version }}
+        run: python -B ci/verify-published-release.py "$VERSION" handoff
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-upstream-evidence
+          path: |
+            handoff/*.json
+            handoff/*.jsonl
+          if-no-files-found: error

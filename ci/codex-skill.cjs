@@ -6,7 +6,10 @@ const { createInterface } = require('node:readline');
 
 async function check() {
   const profile = path.resolve(process.argv[2]);
-  const app = spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/c', 'codex app-server --listen stdio://'], {
+  const argv = process.platform === 'win32'
+    ? [process.env.ComSpec || 'cmd.exe', '/d', '/c', 'codex app-server --listen stdio://']
+    : ['codex', 'app-server', '--listen', 'stdio://'];
+  const app = spawn(argv[0], argv.slice(1), {
     cwd: profile, windowsHide: true, stdio: ['pipe', 'pipe', 'inherit'],
     env: { ...process.env, USERPROFILE: profile, CODEX_HOME: path.join(profile, '.codex') },
   });
@@ -25,7 +28,7 @@ async function check() {
         const target = path.join(profile, '.agents/skills/deploom-upgrade/SKILL.md');
         const skills = packet.result.data.flatMap(entry => entry.skills);
         const found = skills.some(s => s.name === 'deploom-upgrade' && s.enabled &&
-          fs.realpathSync.native(s.path).toLowerCase() === fs.realpathSync.native(target).toLowerCase());
+          path.relative(fs.realpathSync.native(s.path), fs.realpathSync.native(target)) === '');
         if (!found) throw Error('Installed Skill was absent from the Codex skill list');
         console.log('Codex discovered the installed Skill');
         return;
