@@ -48,6 +48,8 @@ jobs:
   registry-install:
     needs: publish
     runs-on: windows-2025
+    outputs:
+      version: ${{ steps.registry.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -62,8 +64,10 @@ jobs:
       - name: Install supported clients
         run: ./ci/install-test-clients.ps1
       - name: Read back the public tarball and use the documented install command
+        id: registry
         run: |
           $release = Get-Content verified/upstream.json -Raw | ConvertFrom-Json
+          "version=$($release.version)" >> $env:GITHUB_OUTPUT
           $spec = "$($release.name)@$($release.version)"
           $env:npm_config_cache = Join-Path $env:RUNNER_TEMP 'new-npm-cache'
           $env:npm_config_registry = 'https://registry.npmjs.org/'
@@ -89,6 +93,11 @@ jobs:
             if ($LASTEXITCODE) { exit $LASTEXITCODE }
           } finally { Pop-Location }
           ./ci/test-install.ps1 -Tarball $received -Work (Join-Path $PWD 'registry-smoke')
+  registry-rollback:
+    needs: registry-install
+    uses: ./.github/workflows/registry-rollback.yml
+    with:
+      expected-version: ${{ needs.registry-install.outputs.version }}
   registry-native:
     needs: registry-install
     strategy:
@@ -112,7 +121,7 @@ jobs:
           python3 ci/posix-opencode.py "$RUNNER_TEMP/deploom-clients/node_modules/.bin"
           PATH="$RUNNER_TEMP/deploom-clients/node_modules/.bin:$PATH" python3 ci/test-posix.py --registry "@levencode/deploom@${GITHUB_REF_NAME#npm-v}"
   downstream:
-    needs: registry-native
+    needs: [registry-native, registry-rollback]
     runs-on: ubuntu-latest
     permissions:
       contents: write
