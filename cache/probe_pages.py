@@ -4,6 +4,7 @@ import hashlib
 import json
 import sqlite3
 import tempfile
+import time
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -18,6 +19,16 @@ def get(url, limit):
         if len(data) > limit:
             raise ValueError("Response exceeds limit")
         return data, response.headers.get("ETag")
+
+
+def check_freshness(manifest, now):
+    published, expires = manifest["published"], manifest["expires"]
+    if type(published) is not int or type(expires) is not int or expires != published + 7 * 86400 or published > now + 300:
+        raise ValueError("Invalid OSV publication or expiry time")
+    if expires <= now:
+        raise ValueError("Published OSV edition has expired")
+    if expires - now <= 2 * 86400:
+        raise ValueError("Published OSV edition expires within 48 hours; publish a fresh signed snapshot")
 
 
 def main():
@@ -44,6 +55,7 @@ def main():
     if hashlib.sha256(raw).hexdigest() != pointer["sha256"]:
         raise ValueError("Manifest digest mismatch")
     manifest = json.loads(raw)
+    check_freshness(manifest, time.time())
     if manifest["tag"] != pointer["tag"] or manifest["asset"] != f"npm-{manifest['sha256']}.sqlite.gz":
         raise ValueError("Release identity mismatch")
     data, _ = get(release + manifest["asset"], 64_000_000)
