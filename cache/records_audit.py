@@ -23,12 +23,9 @@ def audit(items):
     model.eval()
     for item in items:
         package = item["record"]["package"]
-        excerpts = sorted({line.strip() for line in item["evidence"].splitlines()
-                           if package in line and 5 <= len(line.strip()) <= 300})
-        if not excerpts:
+        if not any(package in line and 5 <= len(line.strip()) <= 300 for line in item["evidence"].splitlines()):
             raise ValueError("No fixture excerpt supports the claimed package")
-        prompt = dict(item, exactPackageEvidence=excerpts[:20])
-        messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": json.dumps(prompt)}]
+        messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": json.dumps(item)}]
         ids = tokenizer.apply_chat_template(messages, tokenize=True, add_generation_prompt=True, return_tensors="pt")
         if ids.shape[1] > 4096:
             raise ValueError("Evidence exceeds the review context")
