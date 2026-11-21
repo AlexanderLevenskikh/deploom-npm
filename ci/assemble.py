@@ -122,6 +122,17 @@ def install_wheel(wheel, runtime, notices, solver=None):
         raise ValueError(f"No license found: {wheel.name}")
 
 
+def windows_cli_version(package, mcp_version):
+    path = package / "package.json"
+    metadata = json.loads(path.read_bytes())
+    development = re.fullmatch(r"(\d+\.\d+\.\d+)\.dev(\d+)", mcp_version)
+    if development:
+        # POSIX bootstraps the published wheel. The embedded development wheel runs on Windows.
+        metadata.update(version=f"{development[1]}-preview.{development[2]}", os=["win32"], cpu=["x64"])
+        path.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+    return metadata["version"]
+
+
 def assemble(args, package):
     runtime = package / "runtime"
     notices = package / "THIRD_PARTY_NOTICES"
@@ -143,7 +154,7 @@ def assemble(args, package):
     if vc_files != {"vcruntime140.dll", "vcruntime140_1.dll"}:
         raise ValueError(f"Unexpected stand-alone Visual C++ runtime files: {sorted(vc_files)}")
     release = json.loads((runtime / "Lib/site-packages/deploom_mcp/resources/release-manifest.json").read_bytes())
-    version = json.loads((package / "package.json").read_bytes())["version"]
+    version = windows_cli_version(package, release["mcpVersion"])
     manifest = {"schema": 1, "cliVersion": version, "python": LOCK["python"], "mcpWheelSha256": args.mcp_sha256,
                 "mcpVersion": release["mcpVersion"], "coreRevision": release["core"]["revision"],
                 "solverSha256": {name: digest(args.solver / name) for name in ("libz3.dll", "z3.exe")},

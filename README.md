@@ -54,13 +54,24 @@ Use `claude` or `opencode` in place of `codex` to register another client. Keep 
 
 ## Updates and rollback
 
-To switch back to the previous version retained for that client, run `deploom rollback codex` from an installed CLI. To refresh the shared public npm advisory snapshot explicitly, run `deploom cache refresh`. The client fetches fixed public URLs, verifies the snapshot locally and retains the previous working data if refresh fails. Refresh the snapshot again before its seven-day freshness window expires. An expired snapshot provides unknown security evidence.
+To switch back to the previous version retained for that client, run `deploom rollback codex` from an installed CLI. Setup installs the server. To install or refresh the shared public npm advisory snapshot, run `deploom cache refresh`. The client fetches fixed public URLs, verifies the snapshot locally and retains the previous working data if refresh fails. Restart your MCP client after the first refresh so the launcher selects the snapshot. Refresh it again before its seven-day freshness window expires.
 
 Run `deploom cache status` to inspect the local OSV snapshot. This read-only command checks the installed database's size and digest against its local manifest and prints the edition and its UTC expiry. It works offline before client setup and honors `DEPLOOM_MCP_OSV_DIR`. Status is `fresh`, `expiring` during the last 48 hours, `expired`, `missing`, or `invalid`. The last three return exit code 1. For a custom directory, its owner supplies and refreshes the snapshot. The installer's `cache refresh` updates the default shared cache.
 
 ### Interpreting vulnerability coverage
 
-The OSV index contains advisory records for affected npm names. A fresh edition can still yield `UNKNOWN` for a direct dependency. The host can set `DEPLOOM_MCP_PUBLIC_NAMES` to comma-separated exact npm names whose public identity it has verified and `DEPLOOM_MCP_PRIVATE_SCOPES` to comma-separated private scopes such as `@internal` in the MCP server's environment. Private scopes take precedence. For a confirmed public name and a valid exact version, an empty result from a complete local lookup means zero known findings in that edition. Snapshot freshness alone establishes neither package coverage nor that the upstream feed has no newer edition.
+For a public npm project, `get_upgrade_plan` works with OSV alone. On a clean installation with external evidence enabled, the planner sends package names and versions to the public OSV API. When the launcher selects a snapshot, the planner checks advisories locally. Resolving package versions can still require registry access. A stale snapshot or an inconclusive lookup produces `UNKNOWN`.
+
+The **0.2.22-preview.2 Windows build** can also use the public npm metadata it already fetched for planning. If an anonymous response directly from `https://registry.npmjs.org` confirms the name and exact version, the planner can report zero known findings when the fresh snapshot has no matching advisory. For example, `clsx@2.1.1` can be assessed even in an edition containing no entries for `clsx`. In this case the row reports `publicIdentitySource: NPM_PUBLIC_PACKUMENT`, and the advisory check makes no additional network request. A registry mirror, a system proxy or metadata for another version cannot establish this identity. The released 0.2.21 build requires a host-confirmed public name when there are no advisory rows for the package.
+
+If you received the preview archive directly, run these commands from its directory in PowerShell, then restart Codex. The second command downloads the shared snapshot and requires internet access.
+
+```powershell
+npm.cmd exec --offline --yes --package=./levencode-deploom-0.2.22-preview.2.tgz -- deploom setup codex
+npm.cmd exec --offline --yes --package=./levencode-deploom-0.2.22-preview.2.tgz -- deploom cache refresh
+```
+
+Hosts can still set `DEPLOOM_MCP_PUBLIC_NAMES` to comma-separated exact npm names whose public identity they have independently verified. For mixed projects, declare private scopes such as `@internal` in `DEPLOOM_MCP_PRIVATE_SCOPES`. In the preview these scopes take precedence over public identity evidence and are excluded from public metadata and OSV requests. The published 0.2.21 online path can send private names to OSV when external evidence is enabled.
 
 In MCP 0.2.21 a configured offline snapshot takes precedence over the registry advisory source. On a build that supports corporate fallback, the host enables `DEPLOOM_MCP_DISABLE_EXTERNAL_EVIDENCE=1` and sets both `DEPLOOM_MCP_REGISTRY_ADVISORY_SOURCE` and `DEPLOOM_MCP_CORPORATE_ADVISORY_SOURCE` to the approved corporate HTTPS registry used by the plan. For private scoped registry dependencies, the host also grants metadata access by setting `DEPLOOM_MCP_ALLOWED_PROJECT_REGISTRY` to that registry. A package omitted from its bulk response has unconfirmed coverage. A direct dependency plan and a full lockfile audit can have different totals. Compare identical exact package–version pairs and use the same counting unit for both sources.
 

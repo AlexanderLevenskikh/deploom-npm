@@ -85,6 +85,8 @@ jobs:
           path: build/solver
       - name: Verify public runtime inputs
         run: python -B ci/fetch_inputs.py build/inputs
+      - name: Check development and release package identity
+        run: python -B -m unittest discover -s ci -p test_assemble.py
       - name: Build and inspect the tarball
         run: |
           $wheel = (Get-ChildItem build/wheels/*.whl).FullName
