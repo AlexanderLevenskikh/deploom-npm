@@ -21,6 +21,12 @@ class IntakeTests(unittest.TestCase):
         self.path.parent.mkdir(parents=True)
         self.path.write_text("[]")
         subprocess.run(["git", "init", "-q"], check=True)
+        fixture = Path("fixtures/react")
+        fixture.mkdir(parents=True)
+        import hashlib
+        row = {"package": "react", "from": "18.2.0", "to": "18.3.1", "check": "test", "outcome": "passed"}
+        (fixture / "evidence.json").write_text(json.dumps({"fixtureSha256": hashlib.sha256(
+            b"react 18.2.0 18.3.1").hexdigest(), "claims": [row]}))
         self.base = self.commit()
 
     def commit(self):

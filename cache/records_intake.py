@@ -1,6 +1,7 @@
 """Validate reviewed Git blobs as data. Never check out or execute a contributor's tree."""
 import argparse
 import json
+import hashlib
 import os
 import re
 import subprocess
@@ -93,6 +94,13 @@ def inspect_pr(base, head):
     if not 0 < len(rows) <= MAX_ROWS or len({r["package"] for r in rows}) > MAX_PACKAGES:
         raise ValueError("Expected 1-10 additions across at most three packages")
     verify_rows(base, rows)
+    for row in rows:
+        _, name = re.fullmatch(SOURCE, row["source"]).groups()
+        receipt = parse(blob(base, name.removesuffix("check.cjs") + "evidence.json", 64_000))
+        digest = hashlib.sha256(evidence(base, row["source"]).encode("utf-8")).hexdigest()
+        claim = {k: v for k, v in row.items() if k not in {"schema", "source"}}
+        if receipt.get("fixtureSha256") != digest or claim not in receipt.get("claims", []):
+            raise ValueError("No maintainer-reviewed matching fixture outcome")
     return [{"record": r, "evidence": evidence(base, r["source"])} for r in rows]
 
 

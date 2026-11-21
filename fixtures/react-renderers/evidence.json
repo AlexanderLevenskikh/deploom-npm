@@ -1,0 +1,31 @@
+{
+  "fixtureSha256": "6c4f9d031d1d9201c353e44845bf77e6b3de6ad52c4de9697bda0d527ea55970",
+  "claims": [
+    {
+      "package": "react",
+      "from": "18.2.0",
+      "to": "18.3.1",
+      "check": "install",
+      "outcome": "passed"
+    },
+    {
+      "package": "react",
+      "from": "18.2.0",
+      "to": "18.3.1",
+      "recipe": "align-react-renderers"
+    },
+    {
+      "package": "react-dom",
+      "from": "18.2.0",
+      "to": "18.3.1",
+      "check": "install",
+      "outcome": "passed"
+    },
+    {
+      "package": "react-dom",
+      "from": "18.2.0",
+      "to": "18.3.1",
+      "recipe": "align-react-renderers"
+    }
+  ]
+}
