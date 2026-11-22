@@ -1,0 +1,78 @@
+name: Public npm user journey
+on:
+  push:
+    branches: [acceptance/npm-user-journey]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  consumer:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [windows-2025, ubuntu-24.04, ubuntu-24.04-arm, macos-15]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: https://registry.npmjs.org
+      - shell: bash
+        run: python3 ci/public-user-journey.py
+  reproduce-review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: levencode-labs/deploom-mcp
+          ref: 068f27b2aa4c83b75ca86b41c89e4ed960355010
+          path: build/contracts
+          persist-credentials: false
+      - name: Reconstruct exact audit input from the public refs
+        run: |
+          git fetch --no-tags https://github.com/levencode-labs/deploom-npm.git refs/pull/18/head refs/pull/17/head
+          python -m venv "$RUNNER_TEMP/reviewer"
+          echo "$RUNNER_TEMP/reviewer/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/reviewer/bin/python" -m pip install --only-binary=:all: jsonschema==4.25.1
+          export PYTHONPATH=build/contracts/src
+          py="$RUNNER_TEMP/reviewer/bin/python"
+          "$py" cache/records_intake.py 32c747f470f92609ac01694fb1c3a292d9177d47 "$RUNNER_TEMP/18.json" --head 3eae00e5fdae8bcc3a6800fbbf0f3b874ab32467
+          "$py" cache/records_intake.py 8b823e3141d6ee0d8d958f6e484a87ce01b0a510 "$RUNNER_TEMP/17.json" --head 4ea511a3d02312ecf3bf48141bc1277442a97790
+      - name: Load pinned reviewer
+        run: |
+          python -m pip install --only-binary=:all: --index-url https://download.pytorch.org/whl/cpu torch==2.8.0
+          python -m pip install --only-binary=:all: transformers==4.57.3
+          python cache/records_audit.py --download
+      - name: Observe verdict at the existing strict comparison
+        env:
+          PYTHONPATH: cache
+          HF_HUB_OFFLINE: '1'
+        run: |
+          python - <<'PY'
+          import json, os, sys
+          from pathlib import Path
+          import records_audit
+          for number in (17,18):
+              def trace(frame,event,arg):
+                  if frame.f_code is records_audit.audit.__code__ and event == 'return':
+                      choice = frame.f_locals.get('choice')
+                      print(f"PR {number} decoded verdict: {ascii(choice)}")
+                  return trace if frame.f_code is records_audit.audit.__code__ else None
+              sys.settrace(trace)
+              try:
+                  records_audit.audit(json.loads((Path(os.environ['RUNNER_TEMP']) / f'{number}.json').read_bytes()))
+              except ValueError as error:
+                  if number != 18 or str(error) != 'AI review requires a maintainer':
+                      raise
+              finally:
+                  sys.settrace(None)
+          PY
