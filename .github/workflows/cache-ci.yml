@@ -15,6 +15,7 @@ jobs:
           node-version: '22'
       - run: npm test
       - run: node fixtures/react-renderers/check.cjs
+      - run: node fixtures/react-ssr/check.cjs
       - uses: actions/checkout@v4
         with:
           repository: levencode-labs/deploom-mcp
