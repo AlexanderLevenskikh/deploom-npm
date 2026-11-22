@@ -105,7 +105,7 @@ jobs:
           mkdir -p "$HOME"
           npm install --prefix "$HOME/client" @openai/codex@0.165.0
           export PATH="$HOME/client/node_modules/.bin:$PATH"
-          npm exec --yes --package=@levencode/deploom -- deploom setup codex
+          (cd "$HOME" && npm exec --yes --package=@levencode/deploom -- deploom setup codex)
           base="$XDG_DATA_HOME/DepLoom/public"
           ver=$(jq -er .version "$base/clients/codex/active.json")
           "$base/versions/$ver/bin/python3.13" -I -B ci/staging-readback.py "$RUNNER_TEMP/baseline.json" "$RUNNER_TEMP/test-cache.json"
