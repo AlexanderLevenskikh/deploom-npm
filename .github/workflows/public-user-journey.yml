@@ -78,3 +78,31 @@ jobs:
               finally:
                   sys.settrace(None)
           PY
+      - name: Submit the external test record to the unchanged validator and reviewer
+        env:
+          PYTHONPATH: build/contracts/src
+          HF_HUB_OFFLINE: '1'
+        run: |
+          git fetch --no-tags origin refs/heads/data/react-ssr-user-journey
+          test "$(git rev-parse FETCH_HEAD)" = b9d45e4ff4dddbb22690acd84aa724e23cb1b495
+          git diff --exit-code 39fffbc75e55c8820c16aa0288a3e04cf203e8a7 HEAD -- cache/records_intake.py cache/records_audit.py cache/sign-records.cjs
+          python cache/records_intake.py 39fffbc75e55c8820c16aa0288a3e04cf203e8a7 "$RUNNER_TEMP/test-report.json" --head b9d45e4ff4dddbb22690acd84aa724e23cb1b495
+          python cache/records_audit.py "$RUNNER_TEMP/test-report.json"
+          git worktree add --detach "$RUNNER_TEMP/trial-base" 39fffbc75e55c8820c16aa0288a3e04cf203e8a7
+          git -C "$RUNNER_TEMP/trial-base" merge --squash b9d45e4ff4dddbb22690acd84aa724e23cb1b495
+          git -C "$RUNNER_TEMP/trial-base" -c user.name=Staging -c user.email=staging@example.invalid commit -m 'Qualified data-only update'
+          merged=$(git -C "$RUNNER_TEMP/trial-base" rev-parse HEAD)
+          python cache/records_intake.py "$merged" "$RUNNER_TEMP/test-cache.json"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Deliver to the published MCP using a disposable staging signing identity
+        run: |
+          export HOME="$RUNNER_TEMP/staging-home" XDG_DATA_HOME="$RUNNER_TEMP/staging-data"
+          mkdir -p "$HOME"
+          npm install --prefix "$HOME/client" @openai/codex@0.165.0
+          export PATH="$HOME/client/node_modules/.bin:$PATH"
+          npm exec --yes --package=@levencode/deploom -- deploom setup codex
+          base="$XDG_DATA_HOME/DepLoom/public"
+          ver=$(jq -er .version "$base/clients/codex/active.json")
+          "$base/versions/$ver/bin/python3.13" -I -B ci/staging-readback.py "$RUNNER_TEMP/test-cache.json"

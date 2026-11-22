@@ -110,4 +110,4 @@ if __name__ == "__main__":
         upgrade(*(Path(arg) for arg in sys.argv[1:]))
     else:
         with tempfile.TemporaryDirectory() as directory:
-            install(Path(directory))
+            install(Path(directory).resolve())
