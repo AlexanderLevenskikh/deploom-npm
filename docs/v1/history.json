@@ -16,5 +16,14 @@
     "source": "https://github.com/levencode-labs/deploom-npm/blob/36216f29d52bacd92e0b64e87433c8ed3e84b5a4/fixtures/react-renderers/check.cjs",
     "check": "install",
     "outcome": "passed"
+  },
+  {
+    "schema": 1,
+    "package": "react",
+    "from": "18.2.0",
+    "to": "18.3.1",
+    "source": "https://github.com/levencode-labs/deploom-npm/blob/dd5a43a9b1eb200b7da24e1a23ebcb84336e56f9/fixtures/react-ssr/check.cjs",
+    "check": "test",
+    "outcome": "passed"
   }
 ]
