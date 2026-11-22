@@ -21,6 +21,8 @@ jobs:
         with:
           node-version: '22'
           registry-url: https://registry.npmjs.org
+      - name: Install the supported Codex CLI
+        run: npm install --global @openai/codex@0.165.0
       - shell: bash
         run: python3 ci/public-user-journey.py
   reproduce-review:
