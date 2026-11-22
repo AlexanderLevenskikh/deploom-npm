@@ -78,18 +78,21 @@ jobs:
               finally:
                   sys.settrace(None)
           PY
-      - name: Submit the external test record to the unchanged validator and reviewer
+      - name: Submit the fork's historical install control to the unchanged validator and reviewer
         env:
           PYTHONPATH: build/contracts/src
           HF_HUB_OFFLINE: '1'
         run: |
-          git fetch --no-tags origin refs/heads/data/react-ssr-user-journey
-          test "$(git rev-parse FETCH_HEAD)" = b9d45e4ff4dddbb22690acd84aa724e23cb1b495
-          git diff --exit-code 39fffbc75e55c8820c16aa0288a3e04cf203e8a7 HEAD -- cache/records_intake.py cache/records_audit.py cache/sign-records.cjs
-          python cache/records_intake.py 39fffbc75e55c8820c16aa0288a3e04cf203e8a7 "$RUNNER_TEMP/test-report.json" --head b9d45e4ff4dddbb22690acd84aa724e23cb1b495
+          base=8b823e3141d6ee0d8d958f6e484a87ce01b0a510
+          head=662d8d5ecddeec6a5be925ab7c590e38f4c3b65d
+          git fetch --no-tags origin refs/heads/replay/external-install-observation
+          test "$(git rev-parse FETCH_HEAD)" = "$head"
+          git diff --exit-code "$base" HEAD -- cache/records_intake.py cache/records_audit.py cache/sign-records.cjs
+          python cache/records_intake.py "$base" "$RUNNER_TEMP/test-report.json" --head "$head"
           python cache/records_audit.py "$RUNNER_TEMP/test-report.json"
-          git worktree add --detach "$RUNNER_TEMP/trial-base" 39fffbc75e55c8820c16aa0288a3e04cf203e8a7
-          git -C "$RUNNER_TEMP/trial-base" merge --squash b9d45e4ff4dddbb22690acd84aa724e23cb1b495
+          python cache/records_intake.py "$base" "$RUNNER_TEMP/baseline.json"
+          git worktree add --detach "$RUNNER_TEMP/trial-base" "$base"
+          git -C "$RUNNER_TEMP/trial-base" -c user.name=Staging -c user.email=staging@example.invalid merge --squash "$head"
           git -C "$RUNNER_TEMP/trial-base" -c user.name=Staging -c user.email=staging@example.invalid commit -m 'Qualified data-only update'
           merged=$(git -C "$RUNNER_TEMP/trial-base" rev-parse HEAD)
           python cache/records_intake.py "$merged" "$RUNNER_TEMP/test-cache.json"
@@ -105,4 +108,4 @@ jobs:
           npm exec --yes --package=@levencode/deploom -- deploom setup codex
           base="$XDG_DATA_HOME/DepLoom/public"
           ver=$(jq -er .version "$base/clients/codex/active.json")
-          "$base/versions/$ver/bin/python3.13" -I -B ci/staging-readback.py "$RUNNER_TEMP/test-cache.json"
+          "$base/versions/$ver/bin/python3.13" -I -B ci/staging-readback.py "$RUNNER_TEMP/baseline.json" "$RUNNER_TEMP/test-cache.json"
